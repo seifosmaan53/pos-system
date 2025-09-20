@@ -1,0 +1,26 @@
+{
+  "name": "pos-system",
+  "version": "2.0.0",
+  "description": "Point of Sale System - Clean, Fast, and Reliable",
+  "main": "simple-pos-server.js",
+  "scripts": {
+    "start": "./start-simple-pos.sh",
+    "stop": "pkill -f 'node.*server'",
+    "test": "echo 'Testing POS System...' && curl -s http://localhost:8080/health"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
+    "nodemailer": "^7.0.6",
+    "pm2": "^5.3.0",
+    "sqlite3": "^5.1.6"
+  },
+  "keywords": [
+    "pos",
+    "point-of-sale",
+    "retail",
+    "inventory",
+    "sales"
+  ],
+  "author": "POS Solutions",
+  "license": "MIT"
+}

@@ -1,0 +1,55 @@
+🏪 POS SYSTEM - START HERE
+================================
+
+WELCOME TO YOUR COMPLETE POS SYSTEM!
+
+This flash drive contains everything you need to run a professional
+Point of Sale system on any computer.
+
+QUICK START:
+============
+
+FOR WINDOWS USERS:
+------------------
+1. Double-click: INSTALL-AND-START.bat
+2. Wait for installation (first time only)
+3. System opens automatically in your browser
+
+FOR MAC/LINUX USERS:
+--------------------
+1. Open Terminal in this folder
+2. Run: chmod +x *.sh && ./install-and-start.sh
+3. System opens automatically in your browser
+
+WHAT YOU GET:
+=============
+✅ Complete POS System with inventory management
+✅ Sales processing with multiple payment methods
+✅ Receipt printing to any printer
+✅ Real-time reports and analytics
+✅ Automatic backup system
+✅ Security features and data protection
+✅ Mobile-responsive interface
+✅ Works completely offline
+
+SYSTEM REQUIREMENTS:
+====================
+- Windows 10/11, macOS 10.14+, or Linux
+- 4GB RAM minimum
+- 100MB free space
+- Any modern web browser
+- Internet only needed for initial Node.js installation
+
+SUPPORT:
+========
+- Read README-FLASH-DRIVE.md for detailed instructions
+- All files are included for complete functionality
+- No monthly fees or subscriptions required
+- Commercial license included
+
+READY TO START?
+===============
+Windows: Double-click INSTALL-AND-START.bat
+Mac/Linux: Run ./install-and-start.sh
+
+Your professional POS system is ready to go! 🚀

@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backup Management - POS System</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Reset and base styles */
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            overflow-x: hidden;
+            overflow-y: auto;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        /* Navigation */
+        .nav {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+        
+        .nav-link.active {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        /* Main content grid */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        }
+        
+        .card-header {
+            padding: 20px 25px;
+            border-bottom: 2px solid #f1f3f4;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+        
+        .card-header h2 {
+            font-size: 1.3rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        
+        .card-body {
+            padding: 25px;
+        }
+        
+        /* Status grid */
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .status-label {
+            font-weight: 600;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .status-value {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+        
+        .status-value.success {
+            color: #28a745;
+        }
+        
+        .status-value.warning {
+            color: #ffc107;
+        }
+        
+        .status-value.danger {
+            color: #dc3545;
+        }
+        
+        /* Action buttons */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .btn {
+            padding: 12px 20px;
+            font-size: 0.9rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+            color: #212529;
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* Backup logs */
+        .backup-logs {
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        
+        .backup-logs::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .backup-logs::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        
+        .backup-logs::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        
+        .backup-logs::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 900px;
+            width: 95%;
+            max-height: 80vh;
+            overflow: hidden;
+        }
+        
+        .modal-header {
+            padding: 20px 25px;
+            border-bottom: 2px solid #f1f3f4;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.4rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            transition: background 0.3s ease;
+        }
+        
+        .close-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .modal-body {
+            padding: 25px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        
+        /* Backup grid */
+        .backup-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .backup-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .backup-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+        
+        .backup-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            border-color: #667eea;
+        }
+        
+        .backup-card h4 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            font-size: 1rem;
+            font-weight: 600;
+            word-wrap: break-word;
+            word-break: break-word;
+            white-space: normal;
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }
+        
+        .backup-card .backup-info {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 15px;
+        }
+        
+        .backup-card .backup-info div {
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .backup-card .backup-actions {
+            display: flex;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        
+        .btn-download {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .btn-download:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(23, 162, 184, 0.4);
+        }
+        
+        /* Loading and error states */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .loading i {
+            font-size: 2rem;
+            color: #667eea;
+            margin-bottom: 15px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #f5c6cb;
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .no-data i {
+            font-size: 3rem;
+            color: #ddd;
+            margin-bottom: 15px;
+        }
+        
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .badge-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .badge-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .badge-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .action-buttons {
+                grid-template-columns: 1fr;
+            }
+            
+            .backup-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .card-body {
+                padding: 20px;
+            }
+            
+            .backup-card {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>
+                <i class="fas fa-database"></i>
+                Backup Management
+            </h1>
+            <p>Secure your data with automated backups</p>
+            <nav class="nav">
+                <a href="index.html" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    POS System
+                </a>
+                <a href="backup.html" class="nav-link active">
+                    <i class="fas fa-database"></i>
+                    Backup
+                </a>
+            </nav>
+        </header>
+
+        <main class="main-content">
+            <!-- Left Column -->
+            <div style="display: flex; flex-direction: column; gap: 25px;">
+                <!-- Available Backups -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>
+                            <i class="fas fa-archive"></i>
+                            Available Backups
+                            <span id="backup-count" class="badge badge-primary">Loading...</span>
+                        </h2>
+                        <button id="show-backups-btn" class="btn btn-primary">
+                            <i class="fas fa-eye"></i>
+                            View All
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="backup-summary">
+                            <div class="loading">
+                                <i class="fas fa-spinner"></i>
+                                <p>Loading backup information...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Backup Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-info-circle"></i> System Status</h2>
+                    </div>
+                    <div class="card-body">
+                        <div id="backup-status">
+                            <div class="loading">
+                                <i class="fas fa-spinner"></i>
+                                <p>Loading status...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Backup Actions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-cogs"></i> Actions</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="action-buttons">
+                            <button id="create-backup-btn" class="btn btn-primary">
+                                <i class="fas fa-plus"></i>
+                                Create Backup
+                            </button>
+                            <button id="cleanup-backups-btn" class="btn btn-warning">
+                                <i class="fas fa-broom"></i>
+                                Cleanup Old
+                            </button>
+                            <button id="start-scheduler-btn" class="btn btn-success">
+                                <i class="fas fa-play"></i>
+                                Start Scheduler
+                            </button>
+                            <button id="stop-scheduler-btn" class="btn btn-warning">
+                                <i class="fas fa-stop"></i>
+                                Stop Scheduler
+                            </button>
+                            <button id="refresh-status-btn" class="btn btn-secondary">
+                                <i class="fas fa-refresh"></i>
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div>
+                <!-- Backup Logs -->
+                <div class="card" style="height: 100%;">
+                    <div class="card-header">
+                        <h2><i class="fas fa-list"></i> Recent Activity</h2>
+                    </div>
+                    <div class="card-body">
+                        <div id="backup-logs" class="backup-logs">
+                            <div class="loading">
+                                <i class="fas fa-spinner"></i>
+                                <p>Loading activity logs...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Backup List Modal -->
+    <div id="backup-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>
+                    <i class="fas fa-archive"></i>
+                    Available Backups
+                    <span id="modal-backup-count" class="badge badge-primary">Loading...</span>
+                </h3>
+                <button class="close-btn" id="close-backup-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="backup-list" class="backup-grid">
+                    <div class="loading">
+                        <i class="fas fa-spinner"></i>
+                        <p>Loading backups...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class BackupManager {
+            constructor() {
+                this.init();
+            }
+
+            init() {
+                this.loadBackupStatus();
+                this.loadBackupList();
+                this.loadBackupLogs();
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                document.getElementById('create-backup-btn').addEventListener('click', () => this.createBackup());
+                document.getElementById('cleanup-backups-btn').addEventListener('click', () => this.cleanupOldBackups());
+                document.getElementById('start-scheduler-btn').addEventListener('click', () => this.startScheduler());
+                document.getElementById('stop-scheduler-btn').addEventListener('click', () => this.stopScheduler());
+                document.getElementById('refresh-status-btn').addEventListener('click', () => this.refreshAll());
+                document.getElementById('show-backups-btn').addEventListener('click', () => this.showBackupModal());
+                document.getElementById('close-backup-modal').addEventListener('click', () => this.hideBackupModal());
+                
+                // Close modal when clicking outside
+                document.getElementById('backup-modal').addEventListener('click', (e) => {
+                    if (e.target.id === 'backup-modal') {
+                        this.hideBackupModal();
+                    }
+                });
+            }
+
+            async loadBackupStatus() {
+                try {
+                    const response = await fetch('/backup/status');
+                    const status = await response.json();
+                    this.displayBackupStatus(status);
+                } catch (error) {
+                    console.error('Error loading backup status:', error);
+                    document.getElementById('backup-status').innerHTML = '<div class="error"><i class="fas fa-exclamation-triangle"></i>Failed to load backup status</div>';
+                }
+            }
+
+            async loadBackupList() {
+                try {
+                    const response = await fetch('/backup/list');
+                    const result = await response.json();
+                    this.displayBackupList(result);
+                    this.displayBackupSummary(result);
+                } catch (error) {
+                    console.error('Error loading backup list:', error);
+                    document.getElementById('backup-list').innerHTML = '<div class="error"><i class="fas fa-exclamation-triangle"></i>Failed to load backup list</div>';
+                }
+            }
+
+            async loadBackupLogs() {
+                try {
+                    const response = await fetch('/backup/list');
+                    const result = await response.json();
+                    this.displayBackupLogs(result);
+                } catch (error) {
+                    console.error('Error loading backup logs:', error);
+                    document.getElementById('backup-logs').innerHTML = '<div class="error"><i class="fas fa-exclamation-triangle"></i>Failed to load backup logs</div>';
+                }
+            }
+
+            displayBackupStatus(status) {
+                const statusHtml = `
+                    <div class="status-grid">
+                        <div class="status-item">
+                            <span class="status-label">Scheduler Status:</span>
+                            <span class="status-value ${status.isRunning ? 'success' : 'warning'}">
+                                ${status.isRunning ? 'Running' : 'Stopped'}
+                            </span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Total Backups:</span>
+                            <span class="status-value">${status.stats.totalBackups}</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Total Size:</span>
+                            <span class="status-value">${(status.stats.totalSize / 1024).toFixed(2)} KB</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Newest Backup:</span>
+                            <span class="status-value">${status.stats.newestBackup ? new Date(status.stats.newestBackup).toLocaleString() : 'None'}</span>
+                        </div>
+                        ${status.nextBackup ? `
+                        <div class="status-item">
+                            <span class="status-label">Next Backup:</span>
+                            <span class="status-value">${new Date(status.nextBackup).toLocaleString()}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+                document.getElementById('backup-status').innerHTML = statusHtml;
+            }
+
+            displayBackupSummary(result) {
+                const summaryElement = document.getElementById('backup-summary');
+                
+                if (result.success && result.backups && result.backups.length > 0) {
+                    const totalSize = result.backups.reduce((sum, backup) => sum + backup.size, 0);
+                    const newestBackup = result.backups[0];
+                    
+                    summaryElement.innerHTML = `
+                        <div class="status-grid">
+                            <div class="status-item">
+                                <span class="status-label">Total Backups:</span>
+                                <span class="status-value success">${result.backups.length}</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Total Size:</span>
+                                <span class="status-value">${(totalSize / 1024).toFixed(2)} KB</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Newest:</span>
+                                <span class="status-value">${new Date(newestBackup.created).toLocaleDateString()}</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Type:</span>
+                                <span class="status-value">${newestBackup.type}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    summaryElement.innerHTML = '<div class="no-data"><i class="fas fa-archive"></i><p>No backups found</p></div>';
+                }
+            }
+
+            displayBackupList(result) {
+                
+                // Update backup count in both header and modal
+                const countElement = document.getElementById('backup-count');
+                const modalCountElement = document.getElementById('modal-backup-count');
+                
+                if (result.success && result.backups) {
+                    const countText = `${result.backups.length} backups`;
+                    const countClass = result.backups.length > 0 ? 'badge-success' : 'badge-danger';
+                    
+                    countElement.textContent = countText;
+                    countElement.className = `badge ${countClass}`;
+                    modalCountElement.textContent = countText;
+                    modalCountElement.className = `badge ${countClass}`;
+                } else {
+                    countElement.textContent = '0 backups';
+                    countElement.className = 'badge badge-danger';
+                    modalCountElement.textContent = '0 backups';
+                    modalCountElement.className = 'badge badge-danger';
+                }
+                
+                if (!result.success || !result.backups || result.backups.length === 0) {
+                    document.getElementById('backup-list').innerHTML = '<div class="no-data"><i class="fas fa-archive"></i><p>No backups found</p></div>';
+                    return;
+                }
+
+
+                const backupHtml = result.backups.map(backup => `
+                    <div class="backup-card" onclick="backupManager.downloadBackup('${backup.fileName}')">
+                        <h4>${backup.fileName}</h4>
+                        <div class="backup-info">
+                            <div><i class="fas fa-calendar"></i> ${new Date(backup.created).toLocaleString()}</div>
+                            <div><i class="fas fa-hdd"></i> ${(backup.size / 1024).toFixed(2)} KB</div>
+                            <div><i class="fas fa-tag"></i> ${backup.type}</div>
+                        </div>
+                        <div class="backup-actions">
+                            <button class="btn-download">
+                                <i class="fas fa-download"></i>
+                                Download
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('backup-list').innerHTML = backupHtml;
+            }
+
+            async createBackup() {
+                const btn = document.getElementById('create-backup-btn');
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+
+                try {
+                    const response = await fetch('/backup/create', { method: 'POST' });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        alert('Backup created successfully!');
+                        this.refreshAll();
+                    } else {
+                        alert('Backup failed: ' + result.error);
+                    }
+                } catch (error) {
+                    alert('Error creating backup: ' + error.message);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-plus"></i> Create Backup';
+                }
+            }
+
+            async startScheduler() {
+                try {
+                    const response = await fetch('/backup/start', { method: 'POST' });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        alert('Backup scheduler started!');
+                        this.loadBackupStatus();
+                    } else {
+                        alert('Failed to start scheduler: ' + result.error);
+                    }
+                } catch (error) {
+                    alert('Error starting scheduler: ' + error.message);
+                }
+            }
+
+            async stopScheduler() {
+                try {
+                    const response = await fetch('/backup/stop', { method: 'POST' });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        alert('Backup scheduler stopped!');
+                        this.loadBackupStatus();
+                    } else {
+                        alert('Failed to stop scheduler: ' + result.error);
+                    }
+                } catch (error) {
+                    alert('Error stopping scheduler: ' + error.message);
+                }
+            }
+
+            async cleanupOldBackups() {
+                const btn = document.getElementById('cleanup-backups-btn');
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cleaning...';
+
+                try {
+                    const response = await fetch('/backup/cleanup', { method: 'POST' });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        if (result.deletedCount > 0) {
+                            alert(`Cleanup completed!\n\nDeleted: ${result.deletedCount} old backups\nFreed: ${result.freedSpaceKB} KB`);
+                        } else {
+                            alert('No old backups found to delete.\n\nAll backups are less than 30 days old.');
+                        }
+                        this.refreshAll();
+                    } else {
+                        alert('Cleanup failed: ' + result.error);
+                    }
+                } catch (error) {
+                    alert('Error during cleanup: ' + error.message);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-broom"></i> Cleanup Old';
+                }
+            }
+
+            displayBackupLogs(result) {
+                if (!result.success || !result.backups || result.backups.length === 0) {
+                    document.getElementById('backup-logs').innerHTML = '<div class="no-data"><i class="fas fa-info-circle"></i><p>No backup logs available</p></div>';
+                    return;
+                }
+
+                // Sort backups by creation date (newest first) and take last 10
+                const recentBackups = result.backups
+                    .sort((a, b) => new Date(b.created) - new Date(a.created))
+                    .slice(0, 10);
+
+                const logsHtml = recentBackups.map(backup => {
+                    const isManual = backup.fileName.includes('manual');
+                    const backupType = isManual ? 'Manual' : 'Auto';
+                    const typeColor = isManual ? '#17a2b8' : '#28a745';
+                    const typeIcon = isManual ? 'fas fa-hand-paper' : 'fas fa-clock';
+                    
+                    return `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 8px; background: white; font-size: 0.85rem; transition: all 0.3s ease;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="background: ${typeColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; min-width: 50px; text-align: center;">
+                                    ${backupType}
+                                </div>
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="font-weight: 600; color: #2c3e50; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${backup.fileName}</div>
+                                    <div style="font-size: 0.75rem; color: #666;">
+                                        ${new Date(backup.created).toLocaleDateString()} • ${(backup.size / 1024).toFixed(1)}KB
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="color: #28a745; font-size: 0.8rem;">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                document.getElementById('backup-logs').innerHTML = logsHtml;
+            }
+
+            refreshAll() {
+                this.loadBackupStatus();
+                this.loadBackupList();
+                this.loadBackupLogs();
+            }
+
+            showBackupModal() {
+                const modal = document.getElementById('backup-modal');
+                modal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+                
+                // Load backups if not already loaded
+                this.loadBackupList();
+            }
+
+            hideBackupModal() {
+                const modal = document.getElementById('backup-modal');
+                modal.classList.remove('active');
+                document.body.style.overflow = 'auto';
+            }
+
+            downloadBackup(fileName) {
+                // Create download link
+                const link = document.createElement('a');
+                link.href = `/backups/${fileName}`;
+                link.download = fileName;
+                link.click();
+            }
+        }
+
+        // Initialize backup manager
+        const backupManager = new BackupManager();
+    </script>
+</body>
+</html>
