@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS System</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="pos-container">
+        <!-- Header -->
+        <header class="pos-header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <i class="fas fa-cash-register"></i>
+                    <h1>POS System</h1>
+                </div>
+                <div class="header-info">
+                    <div class="header-links">
+                        <a href="reports.html" class="header-link">
+                            <i class="fas fa-chart-bar"></i> Reports
+                        </a>
+                        <a href="backup.html" class="header-link">
+                            <i class="fas fa-database"></i> Backup
+                        </a>
+                    </div>
+                    <div class="time-display" id="current-time"></div>
+                    <div class="connection-status" id="connection-status">
+                        <i class="fas fa-wifi"></i>
+                        <span>Online</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="pos-main">
+            <!-- Navigation -->
+            <nav class="pos-nav">
+                <button class="nav-btn active" data-screen="pos">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span>Point of Sale</span>
+                </button>
+                <button class="nav-btn" data-screen="products">
+                    <i class="fas fa-boxes"></i>
+                    <span>Inventory</span>
+                </button>
+                <button class="nav-btn" data-screen="sales">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Sales Report</span>
+                </button>
+                <button class="nav-btn" data-screen="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </button>
+            </nav>
+
+            <!-- POS Screen -->
+            <div id="pos-screen" class="screen active">
+                <div class="pos-layout">
+                    <!-- Product Search & Selection -->
+                    <div class="product-section">
+                        <div class="search-container">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="search-input" placeholder="Search products, scan barcode, or type SKU...">
+                            </div>
+                        </div>
+
+                        <div class="products-grid" id="products-grid">
+                            <!-- Products will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Shopping Cart -->
+                    <div class="cart-section">
+                        <div class="cart-header">
+                            <h3><i class="fas fa-shopping-cart"></i> Current Sale</h3>
+                            <button id="clear-cart-btn" class="clear-btn">
+                                <i class="fas fa-trash"></i>
+                                Clear
+                            </button>
+                        </div>
+
+                        <div class="cart-items" id="cart-items">
+                            <div class="empty-cart">
+                                <i class="fas fa-shopping-cart"></i>
+                                <p>No items in cart</p>
+                            </div>
+                        </div>
+
+                        <div class="cart-summary">
+                            <div class="summary-row">
+                                <span>Subtotal:</span>
+                                <span id="subtotal">$0.00</span>
+                            </div>
+                            <div class="summary-row">
+                                <span>Tax (8.875%):</span>
+                                <span id="tax">$0.00</span>
+                            </div>
+                            <div class="summary-row total">
+                                <span>Total:</span>
+                                <span id="total">$0.00</span>
+                            </div>
+                        </div>
+
+                        <div class="cart-actions">
+                            <button id="checkout-btn" class="checkout-btn" disabled>
+                                <i class="fas fa-credit-card"></i>
+                                <span>Process Payment</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products Screen -->
+            <div id="products-screen" class="screen">
+                <div class="screen-header">
+                    <h2><i class="fas fa-boxes"></i> Inventory Management</h2>
+                    <button id="add-product-btn" class="add-btn">
+                        <i class="fas fa-plus"></i>
+                        Add Product
+                    </button>
+                </div>
+
+                <div class="products-table-container">
+                    <table class="products-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>SKU</th>
+                                <th>Barcode</th>
+                                <th>Price</th>
+                                <th>Stock</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="products-table-body">
+                            <!-- Products will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Sales Screen -->
+            <div id="sales-screen" class="screen">
+                <div class="screen-header">
+                    <h2><i class="fas fa-chart-line"></i> Sales Report</h2>
+                    <div class="date-filter">
+                        <input type="date" id="date-filter" value="">
+                        <button id="refresh-sales-btn" class="refresh-btn">
+                            <i class="fas fa-sync"></i>
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div class="sales-summary">
+                    <div class="summary-card">
+                        <div class="card-icon">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3 id="today-revenue">$0.00</h3>
+                            <p>Today's Revenue</p>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="card-icon">
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3 id="today-sales">0</h3>
+                            <p>Today's Sales</p>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="card-icon">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3 id="avg-sale">$0.00</h3>
+                            <p>Average Sale</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sales-table-container">
+                    <table class="sales-table">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Date</th>
+                                <th>Items</th>
+                                <th>Payment</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sales-table-body">
+                            <!-- Sales will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Settings Screen -->
+            <div id="settings-screen" class="screen">
+                <div class="screen-header">
+                    <h2><i class="fas fa-cog"></i> System Settings</h2>
+                </div>
+
+                <div class="settings-content">
+                    <div class="settings-section">
+                        <h3>System Information</h3>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <label>System Status:</label>
+                                <span class="status-online">Online</span>
+                            </div>
+                            <div class="info-item">
+                                <label>Database:</label>
+                                <span>SQLite</span>
+                            </div>
+                            <div class="info-item">
+                                <label>Version:</label>
+                                <span>2.0.0</span>
+                            </div>
+                            <div class="info-item">
+                                <label>Last Updated:</label>
+                                <span id="last-updated">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>Quick Actions</h3>
+                        <div class="action-buttons">
+                            <button id="refresh-data-btn" class="action-btn">
+                                <i class="fas fa-sync"></i>
+                                Refresh Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Product Modal -->
+    <div id="product-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Add Product</h3>
+                <button class="close-btn" id="close-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="product-form" class="product-form">
+                <div class="form-group">
+                    <label for="product-name">Product Name *</label>
+                    <input type="text" id="product-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="product-sku">SKU *</label>
+                    <input type="text" id="product-sku" required>
+                </div>
+                <div class="form-group">
+                    <label for="product-barcode">Barcode</label>
+                    <div class="barcode-input-group">
+                        <input type="text" id="product-barcode" placeholder="Enter barcode or generate one">
+                        <button type="button" id="generate-barcode-btn" class="generate-barcode-btn" title="Generate random barcode">
+                            <i class="fas fa-barcode"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="product-price">Price *</label>
+                        <input type="number" id="product-price" step="0.01" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="product-stock">Stock Quantity</label>
+                        <input type="number" id="product-stock" min="0" value="0">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="cancel-btn" id="cancel-product">Cancel</button>
+                    <button type="submit" class="save-btn">Save Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Process Payment</h3>
+                <button class="close-btn" id="close-payment-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="payment-content">
+                <div class="payment-summary">
+                    <div class="summary-row">
+                        <span>Subtotal:</span>
+                        <span id="payment-subtotal">$0.00</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Tax:</span>
+                        <span id="payment-tax">$0.00</span>
+                    </div>
+                    <div class="summary-row total">
+                        <span>Total:</span>
+                        <span id="payment-total">$0.00</span>
+                    </div>
+                </div>
+                <div class="payment-methods">
+                    <button class="payment-method-btn active" data-method="cash">
+                        <i class="fas fa-money-bill-wave"></i>
+                        <span>Cash</span>
+                    </button>
+                    <button class="payment-method-btn" data-method="card">
+                        <i class="fas fa-credit-card"></i>
+                        <span>Card</span>
+                    </button>
+                </div>
+                <div class="receipt-section">
+                    <label>Receipt Options:</label>
+                    <div class="receipt-options">
+                        <button type="button" class="receipt-btn" onclick="pos.printReceipt()">
+                            <i class="fas fa-print"></i>
+                            Print Receipt
+                        </button>
+                        <button type="button" class="receipt-btn" onclick="pos.previewReceipt()">
+                            <i class="fas fa-eye"></i>
+                            Preview Receipt
+                        </button>
+                    </div>
+                    <small>Receipt will be printed automatically after payment</small>
+                </div>
+                <div class="payment-actions">
+                    <button id="complete-payment-btn" class="complete-btn">
+                        <i class="fas fa-check"></i>
+                        Complete Sale
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receipt Modal -->
+    <div id="receipt-modal" class="modal">
+        <div class="modal-content receipt-modal">
+            <div class="modal-header">
+                <h3>Order Receipt</h3>
+                <div class="receipt-actions">
+                    <button class="btn btn-primary" onclick="pos.printReceipt()">
+                        <i class="fas fa-print"></i> Print Receipt
+                    </button>
+                    <button class="close-btn" onclick="pos.hideReceiptModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div id="receipt-content" class="receipt-content">
+                    <!-- Receipt content will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Container -->
+    <div id="message-container" class="message-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
