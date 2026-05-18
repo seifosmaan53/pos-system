@@ -1,26 +1,56 @@
 {
   "name": "pos-system",
-  "version": "2.0.0",
-  "description": "Point of Sale System - Clean, Fast, and Reliable",
-  "main": "simple-pos-server.js",
+  "version": "2.1.0",
+  "description": "Professional Point of Sale System - Complete, Secure, and Reliable",
+  "main": "pos-system.js",
   "scripts": {
-    "start": "./start-simple-pos.sh",
-    "stop": "pkill -f 'node.*server'",
-    "test": "echo 'Testing POS System...' && curl -s http://localhost:8080/health"
+    "start": "node pos-system.js",
+    "dev": "node pos-system.js",
+    "stop": "pkill -f 'node pos-system.js'",
+    "test": "node -e \"console.log('Testing POS System...'); require('http').get('http://localhost:8080/api/health', (res) => { console.log('✅ POS System is running'); process.exit(0); }).on('error', () => { console.log('❌ POS System not running'); process.exit(1); });\"",
+    "health": "node -e \"require('http').get('http://localhost:8080/api/health', (res) => { console.log('✅ Health check passed'); process.exit(0); }).on('error', () => { console.log('❌ Health check failed'); process.exit(1); });\"",
+    "backup": "node -e \"require('http').request('http://localhost:8080/backup/create', {method: 'POST'}, (res) => { console.log('✅ Backup created'); process.exit(0); }).on('error', () => { console.log('❌ Backup failed'); process.exit(1); }).end();\"",
+    "cleanup": "node -e \"require('http').request('http://localhost:8080/backup/cleanup', {method: 'POST'}, (res) => { console.log('✅ Cleanup completed'); process.exit(0); }).on('error', () => { console.log('❌ Cleanup failed'); process.exit(1); }).end();\"",
+    "install-deps": "npm install --production --no-optional",
+    "security-audit": "npm audit --audit-level=moderate",
+    "update-deps": "npm update --save"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
   },
   "dependencies": {
-    "@sendgrid/mail": "^8.1.6",
-    "nodemailer": "^7.0.6",
-    "pm2": "^5.3.0",
     "sqlite3": "^5.1.6"
   },
+  "devDependencies": {},
+  "optionalDependencies": {},
   "keywords": [
     "pos",
     "point-of-sale",
     "retail",
     "inventory",
-    "sales"
+    "sales",
+    "business",
+    "commerce",
+    "cash-register"
   ],
-  "author": "POS Solutions",
-  "license": "MIT"
+  "author": "Seif Osman",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seifosmaan53/pos-system.git"
+  },
+  "bugs": {
+    "url": "https://github.com/seifosmaan53/pos-system/issues"
+  },
+  "homepage": "https://github.com/seifosmaan53/pos-system#readme",
+  "os": [
+    "win32",
+    "darwin",
+    "linux"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
 }

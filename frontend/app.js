@@ -6,7 +6,26 @@ class POSSystem {
         this.sales = [];
         this.currentScreen = 'pos';
         this.editingProduct = null;
+        this.settings = this.loadSettings();
+        this.taxRate = parseFloat(this.settings.taxRate) || 8.875;
+        this.currencySymbol = this.settings.currencySymbol || '$';
+        this.lowStockThreshold = parseInt(this.settings.lowStockThreshold) || 5;
+        this.dateFormat = this.settings.dateFormat || 'MM/DD/YYYY';
+        this.timeFormat = this.settings.timeFormat || '12';
+        this.itemsPerPage = parseInt(this.settings.itemsPerPage) || 50;
+        this.storeName = this.settings.storeName || '';
+        this.storeAddress = this.settings.storeAddress || '';
+        this.receiptFooter = this.settings.receiptFooter || '';
+        this.autoPrint = this.settings.autoPrint || false;
+        this.soundEnabled = this.settings.soundEnabled || false;
+        this.desktopNotifications = this.settings.desktopNotifications || false;
+        this.lowStockAlerts = this.settings.lowStockAlerts !== undefined ? this.settings.lowStockAlerts : true;
+        this.autoRefreshInterval = parseInt(this.settings.autoRefreshInterval) || 0;
+        this.cacheEnabled = this.settings.cacheEnabled !== undefined ? this.settings.cacheEnabled : true;
+        this.autoBackupFrequency = parseInt(this.settings.autoBackupFrequency) || 24;
+        this.backupRetentionDays = parseInt(this.settings.backupRetentionDays) || 30;
         
+        this.applySettings(); // Apply settings first before loading data
         this.init();
     }
 
@@ -48,8 +67,8 @@ class POSSystem {
             this.searchProducts(query);
                 }
             } else {
-                // Empty search - show all products
-                this.displayProducts();
+                // Empty search - apply current filters
+                this.applyFilters();
             }
         });
 
@@ -145,6 +164,81 @@ class POSSystem {
             this.refreshAllData();
         });
 
+        // Dark mode toggle
+        const darkModeToggle = document.getElementById('dark-mode-toggle');
+        if (darkModeToggle) {
+            darkModeToggle.addEventListener('click', () => {
+                this.toggleDarkMode();
+            });
+        }
+
+        // Settings screen event listeners
+        const darkModeSetting = document.getElementById('dark-mode-setting');
+        if (darkModeSetting) {
+            darkModeSetting.addEventListener('change', (e) => {
+                this.toggleDarkMode(e.target.checked);
+            });
+        }
+
+        const taxRateInput = document.getElementById('tax-rate');
+        if (taxRateInput) {
+            taxRateInput.addEventListener('change', (e) => {
+                this.taxRate = parseFloat(e.target.value) || 8.875;
+                this.updateCartSummary();
+            });
+        }
+
+        const currencyInput = document.getElementById('currency-symbol');
+        if (currencyInput) {
+            currencyInput.addEventListener('change', (e) => {
+                this.currencySymbol = e.target.value || '$';
+                this.displayProducts();
+                this.updateCartSummary();
+            });
+        }
+
+        const lowStockInput = document.getElementById('low-stock-threshold');
+        if (lowStockInput) {
+            lowStockInput.addEventListener('change', (e) => {
+                this.lowStockThreshold = parseInt(e.target.value) || 5;
+                this.displayProducts();
+            });
+        }
+
+        const saveSettingsBtn = document.getElementById('save-settings-btn');
+        if (saveSettingsBtn) {
+            saveSettingsBtn.addEventListener('click', () => {
+                this.saveSettings();
+            });
+        }
+
+        const resetSettingsBtn = document.getElementById('reset-settings-btn');
+        if (resetSettingsBtn) {
+            resetSettingsBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to reset all settings to defaults? This cannot be undone.')) {
+                    this.resetSettings();
+                }
+            });
+        }
+
+        // Filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.closest('.filter-btn').classList.add('active');
+                const filter = e.target.closest('.filter-btn').dataset.filter;
+                this.applyFilter(filter);
+            });
+        });
+
+        // Sort dropdown
+        const sortSelect = document.getElementById('sort-products');
+        if (sortSelect) {
+            sortSelect.addEventListener('change', (e) => {
+                this.applySorting(e.target.value);
+            });
+        }
+
         // Close modals on outside click
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
@@ -155,34 +249,44 @@ class POSSystem {
         });
     }
 
-    switchScreen(screenName) {
+    async switchScreen(screenName) {
         // Update navigation
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.classList.remove('active');
         });
-        document.querySelector(`[data-screen="${screenName}"]`).classList.add('active');
+        const navBtn = document.querySelector(`[data-screen="${screenName}"]`);
+        if (navBtn) {
+            navBtn.classList.add('active');
+        }
 
         // Update screens
         document.querySelectorAll('.screen').forEach(screen => {
             screen.classList.remove('active');
         });
-        document.getElementById(`${screenName}-screen`).classList.add('active');
+        const targetScreen = document.getElementById(`${screenName}-screen`);
+        if (targetScreen) {
+            targetScreen.classList.add('active');
+        }
 
         this.currentScreen = screenName;
 
         // Load data for specific screens
         if (screenName === 'products') {
-            this.loadProductsTable();
+            // Always reload products table when switching to products screen
+            await this.loadProductsTable();
         } else if (screenName === 'sales') {
             this.loadSalesTable();
             this.updateSalesSummary();
+        } else if (screenName === 'settings') {
+            this.loadSettingsScreen();
         }
     }
 
     updateTime() {
         const now = new Date();
+        const use12Hour = this.timeFormat !== '24';
         const timeString = now.toLocaleTimeString('en-US', {
-            hour12: true,
+            hour12: use12Hour,
             hour: '2-digit',
             minute: '2-digit',
             second: '2-digit'
@@ -193,13 +297,61 @@ class POSSystem {
     async updateSystemStatus() {
         try {
             const response = await fetch('/api/health');
+            
+            // Check if response is OK
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
             const health = await response.json();
             
-            // Update system status elements
+            // Update system status display in settings screen
+            const systemStatusDisplay = document.getElementById('system-status-display');
+            if (systemStatusDisplay) {
+                if (health.status === 'OK') {
+                    systemStatusDisplay.textContent = 'OK';
+                    systemStatusDisplay.className = 'status-online';
+                } else {
+                    systemStatusDisplay.textContent = 'Degraded';
+                    systemStatusDisplay.className = 'status-offline';
+                }
+            }
+            
+            // Update last updated time
+            const lastUpdated = document.getElementById('last-updated');
+            if (lastUpdated) {
+                const now = new Date();
+                lastUpdated.textContent = now.toLocaleString('en-US', {
+                    month: '2-digit',
+                    day: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                });
+            }
+            
+            // Update system status elements in header
             const statusElement = document.querySelector('.status-online');
             if (statusElement) {
-                statusElement.textContent = health.status;
-                statusElement.className = health.status === 'OK' ? 'status-online' : 'status-offline';
+                // Display user-friendly status text
+                // Check if status is OK (case-insensitive)
+                const isHealthy = health.status === 'OK' || health.status === 'ok';
+                
+                if (isHealthy) {
+                    statusElement.textContent = 'OK';
+                    statusElement.className = 'status-online';
+                } else {
+                    // Show the status (could be "Degraded", "ERROR", etc.)
+                    statusElement.textContent = health.status || 'Unknown';
+                    statusElement.className = 'status-offline';
+                    
+                    // If degraded but system is running, show a warning
+                    if (health.status === 'Degraded' && health.message) {
+                        console.warn('System status:', health.status, '-', health.message);
+                    }
+                }
             }
             
             // Update last updated timestamp
@@ -214,31 +366,68 @@ class POSSystem {
             if (connectionStatus) {
                 const statusText = connectionStatus.querySelector('span');
                 if (statusText) {
-                    statusText.textContent = health.status === 'OK' ? 'Online' : 'Offline';
+                    // Show "Online" for OK status, otherwise show the actual status
+                    const isHealthy = health.status === 'OK' || 
+                                     health.status === 'ok' || 
+                                     (health.message && health.message.toLowerCase().includes('running'));
+                    
+                    if (isHealthy) {
+                        statusText.textContent = 'Online';
+                        connectionStatus.classList.remove('offline');
+                    } else {
+                        statusText.textContent = health.status || 'Offline';
+                        connectionStatus.classList.add('offline');
+                    }
                 }
             }
             
         } catch (error) {
             console.error('Failed to update system status:', error);
-            // Update to show offline status
+            
+            // Check if it's a browser security/HTTPS blocking issue
+            const isSecurityError = error.message.includes('HTTPS') || 
+                                   error.message.includes('mixed content') ||
+                                   error.message.includes('secure') ||
+                                   error.name === 'TypeError' && error.message.includes('Failed to fetch');
+            
+            // Update to show appropriate status
             const statusElement = document.querySelector('.status-online');
             if (statusElement) {
-                statusElement.textContent = 'Offline';
-                statusElement.className = 'status-offline';
+                if (isSecurityError) {
+                    statusElement.textContent = 'Blocked (HTTPS Only)';
+                    statusElement.className = 'status-offline';
+                } else {
+                    statusElement.textContent = 'Offline';
+                    statusElement.className = 'status-offline';
+                }
             }
             
             const connectionStatus = document.getElementById('connection-status');
             if (connectionStatus) {
                 const statusText = connectionStatus.querySelector('span');
                 if (statusText) {
-                    statusText.textContent = 'Offline';
+                    if (isSecurityError) {
+                        statusText.textContent = 'Blocked';
+                    } else {
+                        statusText.textContent = 'Offline';
+                    }
                 }
             }
         }
     }
 
+    getLocalDateString(date = null) {
+        // Helper function to get local date in YYYY-MM-DD format
+        // Use local date, not UTC, to avoid timezone issues
+        const d = date || new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    
     setDateFilter() {
-        const today = new Date().toISOString().split('T')[0];
+        const today = this.getLocalDateString();
         document.getElementById('date-filter').value = today;
     }
 
@@ -246,33 +435,96 @@ class POSSystem {
         try {
             const response = await fetch('/api/products');
             this.products = await response.json();
-            this.displayProducts();
+            // Display products with current settings (currency, low stock threshold)
+            // Apply filters and sorting after loading
+            this.applyFilters();
         } catch (error) {
             console.error('Error loading products:', error);
             this.showMessage('Error loading products', 'error');
         }
     }
 
-    displayProducts() {
+    displayProducts(filteredProducts = null) {
         const container = document.getElementById('products-grid');
         container.innerHTML = '';
 
-        if (this.products.length === 0) {
-            container.innerHTML = '<div class="empty-state"><i class="fas fa-boxes"></i><p>No products found</p></div>';
+        const productsToDisplay = filteredProducts || this.products;
+
+        if (productsToDisplay.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-boxes"></i>
+                    <p>No products found</p>
+                    <small>Try adjusting your search or filters</small>
+                </div>
+            `;
             return;
         }
 
-        this.products.forEach(product => {
+        productsToDisplay.forEach(product => {
             const productCard = document.createElement('div');
-            productCard.className = `product-card ${product.stock_quantity <= 5 ? 'low-stock' : ''}`;
+            const isLowStock = product.stock_quantity <= this.lowStockThreshold && product.stock_quantity > 0;
+            const isOutOfStock = product.stock_quantity === 0;
+            
+            let stockStatusClass = 'in-stock';
+            let stockStatusIcon = 'fa-check-circle';
+            let stockStatusText = 'In Stock';
+            let stockStatusColor = '#27ae60';
+            
+            if (isOutOfStock) {
+                stockStatusClass = 'out-of-stock';
+                stockStatusIcon = 'fa-times-circle';
+                stockStatusText = 'Out of Stock';
+                stockStatusColor = '#e74c3c';
+            } else if (isLowStock) {
+                stockStatusClass = 'low-stock';
+                stockStatusIcon = 'fa-exclamation-triangle';
+                stockStatusText = 'Low Stock';
+                stockStatusColor = '#f39c12';
+            }
+            
+            productCard.className = `product-card ${stockStatusClass}`;
+            
+            // Escape HTML to prevent XSS
+            const productName = this.escapeHtml(product.name);
+            
             productCard.innerHTML = `
-                <div class="product-name">${product.name}</div>
-                <div class="product-price">$${parseFloat(product.price).toFixed(2)}</div>
-                <div class="product-stock ${product.stock_quantity <= 5 ? 'low' : ''}">
-                    Stock: ${product.stock_quantity}
+                <div class="product-card-header">
+                    <div class="product-status-badge ${stockStatusClass}">
+                        <i class="fas ${stockStatusIcon}"></i>
+                        <span>${stockStatusText}</span>
+                    </div>
+                </div>
+                <div class="product-card-body">
+                    <div class="product-name" title="${productName}">${productName}</div>
+                    <div class="product-price">${this.formatCurrency(parseFloat(product.price))}</div>
+                    <div class="product-stock-info">
+                        <i class="fas fa-box"></i>
+                        <span class="stock-quantity ${stockStatusClass}">${product.stock_quantity} ${product.stock_quantity === 1 ? 'unit' : 'units'}</span>
+                    </div>
+                </div>
+                <div class="product-card-footer">
+                    ${isOutOfStock ? 
+                        '<button class="product-action-btn disabled" disabled><i class="fas fa-ban"></i> Unavailable</button>' :
+                        '<button class="product-action-btn"><i class="fas fa-plus-circle"></i> Add to Cart</button>'
+                    }
                 </div>
             `;
-            productCard.addEventListener('click', () => this.addToCart(product));
+            
+            if (!isOutOfStock) {
+                const addButton = productCard.querySelector('.product-action-btn');
+                addButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.addToCart(product);
+                });
+            }
+            
+            productCard.addEventListener('click', (e) => {
+                if (!e.target.closest('.product-action-btn') && !isOutOfStock) {
+                    this.addToCart(product);
+                }
+            });
+            
             container.appendChild(productCard);
         });
     }
@@ -287,7 +539,7 @@ class POSSystem {
         try {
             // Remove # from order ID for the API call
             const cleanOrderId = orderId.replace('#', '');
-            console.log(`📋 Loading receipt for order: ${cleanOrderId}`);
+            // Loading receipt for order
             const response = await fetch(`/order/${cleanOrderId}`);
             const data = await response.json();
             
@@ -330,7 +582,7 @@ class POSSystem {
                                 <div class="item-name">${item.name}</div>
                                 <div class="item-details">SKU: ${item.sku} | Qty: ${item.quantity}</div>
                             </div>
-                            <div class="item-price">$${(item.quantity * item.price).toFixed(2)}</div>
+                            <div class="item-price">${this.formatCurrency(item.quantity * item.price)}</div>
                         </div>
                     `).join('')}
                 </div>
@@ -338,15 +590,15 @@ class POSSystem {
                 <div class="receipt-totals">
                     <div class="receipt-total-row">
                         <span>Subtotal:</span>
-                        <span>$${totals.subtotal.toFixed(2)}</span>
+                        <span>${this.formatCurrency(totals.subtotal)}</span>
                     </div>
                     <div class="receipt-total-row">
-                        <span>Tax (8.875%):</span>
-                        <span>$${totals.tax.toFixed(2)}</span>
+                        <span>Tax (${this.taxRate}%):</span>
+                        <span>${this.formatCurrency(totals.tax)}</span>
                     </div>
                     <div class="receipt-total-row final">
                         <span>Total:</span>
-                        <span>$${totals.total.toFixed(2)}</span>
+                        <span>${this.formatCurrency(totals.total)}</span>
                     </div>
                 </div>
                 
@@ -407,7 +659,7 @@ class POSSystem {
                     return;
                 }
             } catch (e) {
-                console.log('Window.open failed, trying alternative method');
+                // Window.open failed, trying alternative method
             }
             
             // Method 2: Create a hidden iframe and print from there
@@ -448,7 +700,7 @@ class POSSystem {
                 return;
                 
             } catch (e) {
-                console.log('Iframe method failed, trying current window method');
+                // Iframe method failed, trying current window method
             }
             
             // Method 3: Show in current window with print button
@@ -575,7 +827,7 @@ class POSSystem {
                     return;
                 }
             } catch (e) {
-                console.log('Preview window.open failed, trying modal method');
+                // Preview window.open failed, trying modal method
             }
             
             // Fallback: Show in modal (same as print fallback)
@@ -589,7 +841,7 @@ class POSSystem {
 
     generateReceiptHTML() {
         const subtotal = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const tax = subtotal * 0.08875;
+        const tax = subtotal * (this.taxRate / 100);
         const total = subtotal + tax;
         const orderId = '#' + Date.now();
         const date = new Date().toLocaleString();
@@ -677,7 +929,7 @@ class POSSystem {
             ${this.cart.map(item => `
                 <div class="item">
                     <span class="item-name">${item.name} (${item.quantity}x)</span>
-                    <span class="item-price">$${(item.price * item.quantity).toFixed(2)}</span>
+                    <span class="item-price">${this.formatCurrency(item.price * item.quantity)}</span>
                 </div>
             `).join('')}
         </div>
@@ -685,15 +937,15 @@ class POSSystem {
         <div class="totals">
             <div class="total-row">
                 <span>Subtotal:</span>
-                <span>$${subtotal.toFixed(2)}</span>
+                <span>${this.formatCurrency(subtotal)}</span>
             </div>
             <div class="total-row">
-                <span>Tax (8.875%):</span>
-                <span>$${tax.toFixed(2)}</span>
+                <span>Tax (${this.taxRate}%):</span>
+                <span>${this.formatCurrency(tax)}</span>
             </div>
             <div class="total-row final-total">
                 <span>TOTAL:</span>
-                <span>$${total.toFixed(2)}</span>
+                <span>${this.formatCurrency(total)}</span>
             </div>
         </div>
         
@@ -707,14 +959,112 @@ class POSSystem {
     }
 
     searchProducts(query) {
-        const container = document.getElementById('products-grid');
-        const cards = container.querySelectorAll('.product-card');
-        
-        cards.forEach(card => {
-            const name = card.querySelector('.product-name').textContent.toLowerCase();
-            const matches = name.includes(query.toLowerCase());
-            card.style.display = matches ? 'block' : 'none';
+        const searchTerm = query.toLowerCase();
+        const filtered = this.products.filter(product => {
+            const name = product.name.toLowerCase();
+            const sku = (product.sku || '').toLowerCase();
+            const barcode = (product.barcode || '').toLowerCase();
+            return name.includes(searchTerm) || sku.includes(searchTerm) || barcode.includes(searchTerm);
         });
+        this.displayProducts(filtered);
+    }
+
+    applyFilter(filterType) {
+        let filtered = this.products;
+        
+        switch(filterType) {
+            case 'in-stock':
+                filtered = this.products.filter(p => p.stock_quantity > this.lowStockThreshold);
+                break;
+            case 'low-stock':
+                filtered = this.products.filter(p => p.stock_quantity > 0 && p.stock_quantity <= this.lowStockThreshold);
+                break;
+            case 'out-of-stock':
+                filtered = this.products.filter(p => p.stock_quantity === 0);
+                break;
+            case 'all':
+            default:
+                filtered = this.products;
+                break;
+        }
+        
+        // Apply current search if any
+        const searchInput = document.getElementById('search-input');
+        if (searchInput && searchInput.value.trim()) {
+            const searchTerm = searchInput.value.toLowerCase();
+            filtered = filtered.filter(product => {
+                const name = product.name.toLowerCase();
+                const sku = (product.sku || '').toLowerCase();
+                const barcode = (product.barcode || '').toLowerCase();
+                return name.includes(searchTerm) || sku.includes(searchTerm) || barcode.includes(searchTerm);
+            });
+        }
+        
+        this.applySorting(document.getElementById('sort-products')?.value || 'name', filtered);
+    }
+
+    applySorting(sortBy, productsToSort = null) {
+        // Get current filter state
+        const activeFilter = document.querySelector('.filter-btn.active')?.dataset.filter || 'all';
+        let products = productsToSort;
+        
+        // If no products provided, apply current filter first
+        if (!products) {
+            switch(activeFilter) {
+                case 'in-stock':
+                    products = this.products.filter(p => p.stock_quantity > this.lowStockThreshold);
+                    break;
+                case 'low-stock':
+                    products = this.products.filter(p => p.stock_quantity > 0 && p.stock_quantity <= this.lowStockThreshold);
+                    break;
+                case 'out-of-stock':
+                    products = this.products.filter(p => p.stock_quantity === 0);
+                    break;
+                case 'all':
+                default:
+                    products = this.products;
+                    break;
+            }
+            
+            // Apply current search if any
+            const searchInput = document.getElementById('search-input');
+            if (searchInput && searchInput.value.trim()) {
+                const searchTerm = searchInput.value.toLowerCase();
+                products = products.filter(product => {
+                    const name = product.name.toLowerCase();
+                    const sku = (product.sku || '').toLowerCase();
+                    const barcode = (product.barcode || '').toLowerCase();
+                    return name.includes(searchTerm) || sku.includes(searchTerm) || barcode.includes(searchTerm);
+                });
+            }
+        }
+        
+        let sorted = [...products];
+        
+        switch(sortBy) {
+            case 'name':
+                sorted.sort((a, b) => a.name.localeCompare(b.name));
+                break;
+            case 'price-asc':
+                sorted.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+                break;
+            case 'price-desc':
+                sorted.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+                break;
+            case 'stock-asc':
+                sorted.sort((a, b) => a.stock_quantity - b.stock_quantity);
+                break;
+            case 'stock-desc':
+                sorted.sort((a, b) => b.stock_quantity - a.stock_quantity);
+                break;
+        }
+        
+        this.displayProducts(sorted);
+    }
+
+    applyFilters() {
+        const activeFilter = document.querySelector('.filter-btn.active')?.dataset.filter || 'all';
+        this.applyFilter(activeFilter);
     }
 
     addToCart(product) {
@@ -755,13 +1105,13 @@ class POSSystem {
     updateCartDisplay() {
         const container = document.getElementById('cart-items');
         const subtotal = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const tax = subtotal * 0.08875; // New York City tax rate (8.875%)
+        const tax = subtotal * (this.taxRate / 100);
         const total = subtotal + tax;
 
         // Update totals
-        document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
-        document.getElementById('tax').textContent = `$${tax.toFixed(2)}`;
-        document.getElementById('total').textContent = `$${total.toFixed(2)}`;
+        document.getElementById('subtotal').textContent = this.formatCurrency(subtotal);
+        document.getElementById('tax').textContent = this.formatCurrency(tax);
+        document.getElementById('total').textContent = this.formatCurrency(total);
 
         // Enable/disable checkout button
         document.getElementById('checkout-btn').disabled = this.cart.length === 0;
@@ -774,20 +1124,25 @@ class POSSystem {
                 <div class="cart-item">
                     <div class="item-info">
                         <div class="item-name">${item.name}</div>
-                        <div class="item-details">$${item.price.toFixed(2)} each</div>
-                </div>
+                        <div class="item-details">${this.formatCurrency(item.price)} each</div>
+                    </div>
                     <div class="item-controls">
                         <button class="quantity-btn" onclick="pos.updateQuantity(${item.id}, -1)">-</button>
                         <span class="item-quantity">${item.quantity}</span>
                         <button class="quantity-btn" onclick="pos.updateQuantity(${item.id}, 1)">+</button>
-                </div>
-                    <div class="item-total">$${(item.price * item.quantity).toFixed(2)}</div>
+                    </div>
+                    <div class="item-total">${this.formatCurrency(item.price * item.quantity)}</div>
                     <div class="remove-item" onclick="pos.removeFromCart(${item.id})">
                         <i class="fas fa-trash"></i>
                     </div>
                 </div>
             `).join('');
         }
+    }
+
+    updateCartSummary() {
+        // Alias for updateCartDisplay to maintain compatibility
+        this.updateCartDisplay();
     }
 
     updateQuantity(productId, change) {
@@ -818,12 +1173,12 @@ class POSSystem {
 
     showPaymentModal() {
         const subtotal = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const tax = subtotal * 0.08875; // New York City tax rate (8.875%)
+        const tax = subtotal * (this.taxRate / 100); // New York City tax rate (8.875%)
         const total = subtotal + tax;
 
-        document.getElementById('payment-subtotal').textContent = `$${subtotal.toFixed(2)}`;
-        document.getElementById('payment-tax').textContent = `$${tax.toFixed(2)}`;
-        document.getElementById('payment-total').textContent = `$${total.toFixed(2)}`;
+        document.getElementById('payment-subtotal').textContent = this.formatCurrency(subtotal);
+        document.getElementById('payment-tax').textContent = this.formatCurrency(tax);
+        document.getElementById('payment-total').textContent = this.formatCurrency(total);
 
         document.getElementById('payment-modal').classList.add('active');
     }
@@ -835,7 +1190,7 @@ class POSSystem {
     async completePayment() {
         try {
             const subtotal = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            const tax = subtotal * 0.08875; // New York City tax rate (8.875%)
+            const tax = subtotal * (this.taxRate / 100); // New York City tax rate (8.875%)
             const total = subtotal + tax;
 
             // Get selected payment method
@@ -866,8 +1221,8 @@ class POSSystem {
                 this.clearCart();
                 this.hidePaymentModal();
                 
-                // Print receipt automatically
-                this.printReceipt();
+                // Receipt can be printed manually using the Print Receipt button
+                // this.printReceipt(); // Removed automatic receipt popup
                 
                 this.loadSales(); // Refresh sales data
                 this.loadProducts(); // Refresh product list to show updated stock
@@ -974,7 +1329,7 @@ class POSSystem {
     }
 
     handleBarcodeScan(barcode) {
-        console.log('Barcode scanned:', barcode);
+        // Barcode scanned
         
         // Find product by barcode
         const product = this.products.find(p => p.barcode === barcode);
@@ -1001,17 +1356,26 @@ class POSSystem {
     async saveProduct() {
         try {
         const formData = {
-                name: document.getElementById('product-name').value,
-                sku: document.getElementById('product-sku').value,
-                barcode: document.getElementById('product-barcode').value,
+                name: document.getElementById('product-name').value.trim(),
+                sku: document.getElementById('product-sku').value.trim(),
+                barcode: document.getElementById('product-barcode').value.trim(),
             price: parseFloat(document.getElementById('product-price').value),
-                stock_quantity: parseInt(document.getElementById('product-stock').value) || 0
+                stock_quantity: (() => {
+                    const stockValue = document.getElementById('product-stock').value;
+                    const parsed = parseInt(stockValue);
+                    return isNaN(parsed) ? 0 : parsed;
+                })()
         };
 
             // Validate required fields
-            if (!formData.name || !formData.sku || !formData.price) {
-                this.showMessage('Please fill in all required fields', 'error');
+            if (!formData.name || !formData.sku || isNaN(formData.price) || formData.price <= 0) {
+                this.showMessage('Please fill in all required fields (Name, SKU, and Price must be valid)', 'error');
             return;
+        }
+        
+        // Convert empty barcode to null for optional field
+        if (formData.barcode === '') {
+            formData.barcode = null;
         }
 
             let response;
@@ -1043,7 +1407,12 @@ class POSSystem {
                     this.loadProductsTable();
                 }
             } else {
-                throw new Error(result.error || 'Failed to save product');
+                // Show detailed validation errors if available
+                let errorMessage = result.error || 'Failed to save product';
+                if (result.details && Array.isArray(result.details) && result.details.length > 0) {
+                    errorMessage += ': ' + result.details.join(', ');
+                }
+                throw new Error(errorMessage);
             }
         } catch (error) {
             console.error('Error saving product:', error);
@@ -1053,34 +1422,74 @@ class POSSystem {
 
     async loadProductsTable() {
         try {
-            const response = await fetch('/api/products');
-            this.products = await response.json();
-            
+            console.log('loadProductsTable called');
             const tbody = document.getElementById('products-table-body');
+            if (!tbody) {
+                console.error('Products table body not found - element does not exist');
+                return;
+            }
+
+            // Show loading state
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Loading products...</td></tr>';
+
+            const response = await fetch('/api/products');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const products = await response.json();
+            console.log(`Loaded ${products ? products.length : 0} products from API`);
+            this.products = products; // Update products array
             tbody.innerHTML = '';
 
-            this.products.forEach(product => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${product.name}</td>
-                    <td>${product.sku}</td>
-                    <td>${product.barcode || '-'}</td>
-                    <td>$${parseFloat(product.price).toFixed(2)}</td>
-                    <td class="${product.stock_quantity <= 5 ? 'low-stock' : ''}">${product.stock_quantity}</td>
-                    <td>
-                        <button class="edit-btn" onclick="pos.showProductModal(${JSON.stringify(product).replace(/"/g, '&quot;')})" title="Edit Product">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="delete-btn" onclick="pos.deleteProduct(${product.id})" title="Delete Product">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(row);
+            if (!products || products.length === 0) {
+                console.log('No products found in response');
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: #666;"><i class="fas fa-boxes"></i><br><br>No products found. Click "Add Product" to create your first product.</td></tr>';
+                return;
+            }
+
+            products.forEach(product => {
+                try {
+                    const row = document.createElement('tr');
+                    // Safely escape product data for onclick
+                    const productData = JSON.stringify(product)
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#39;');
+                    
+                    // Ensure formatCurrency and escapeHtml are available
+                    const formattedPrice = this.formatCurrency ? this.formatCurrency(parseFloat(product.price)) : `$${parseFloat(product.price).toFixed(2)}`;
+                    const escapedName = this.escapeHtml ? this.escapeHtml(product.name) : product.name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const escapedSku = this.escapeHtml ? this.escapeHtml(product.sku || '-') : (product.sku || '-').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const escapedBarcode = this.escapeHtml ? this.escapeHtml(product.barcode || '-') : (product.barcode || '-').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    
+                    row.innerHTML = `
+                        <td>${escapedName}</td>
+                        <td>${escapedSku}</td>
+                        <td>${escapedBarcode}</td>
+                        <td>${formattedPrice}</td>
+                        <td class="${product.stock_quantity <= (this.lowStockThreshold || 5) ? 'low-stock' : ''}">${product.stock_quantity}</td>
+                        <td>
+                            <button class="edit-btn" onclick="pos.showProductModal(${productData})" title="Edit Product">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="delete-btn" onclick="pos.deleteProduct(${product.id})" title="Delete Product">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                } catch (rowError) {
+                    console.error('Error creating row for product:', product, rowError);
+                }
             });
+            console.log(`Successfully displayed ${products.length} products in table`);
         } catch (error) {
             console.error('Error loading products table:', error);
-            this.showMessage('Error loading products', 'error');
+            const tbody = document.getElementById('products-table-body');
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #e74c3c;"><i class="fas fa-exclamation-triangle"></i><br><br>Error loading products: ${error.message}<br><button onclick="pos.loadProductsTable()" style="margin-top: 10px; padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Retry</button></td></tr>`;
+            }
+            this.showMessage(`Error loading products: ${error.message}`, 'error');
         }
     }
 
@@ -1146,12 +1555,28 @@ class POSSystem {
                 const paymentMethodIcon = sale.payment_method === 'card' ? '💳' : '💵';
                 const paymentMethodText = sale.payment_method === 'card' ? 'Card' : 'Cash';
                 
+                const paymentBadgeClass = sale.payment_method === 'card' ? 'card' : 'cash';
                 row.innerHTML = `
-                <td>${sale.order_id || 'N/A'}</td>
-                <td>${date} ${time}</td>
-                <td>${sale.item_count || 0} items</td>
-                <td><span class="payment-icon">${paymentMethodIcon}</span> ${paymentMethodText}</td>
-                <td>$${parseFloat(sale.total_amount).toFixed(2)}</td>
+                <td style="font-weight: 700; color: #667eea; font-size: 1rem;">${sale.order_id || 'N/A'}</td>
+                <td style="color: #495057;">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-weight: 600; color: #2c3e50; font-size: 0.95rem;">${date}</span>
+                        <span style="color: #6c757d; font-size: 0.85rem; font-weight: 500;">${time}</span>
+                    </div>
+                </td>
+                <td style="color: #495057; font-weight: 600;">
+                    <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f8f9fa; border-radius: 12px; font-size: 0.9rem;">
+                        <i class="fas fa-shopping-bag" style="font-size: 0.8rem; color: #667eea;"></i>
+                        ${sale.item_count || 0} ${sale.item_count === 1 ? 'item' : 'items'}
+                    </span>
+                </td>
+                <td style="text-align: center;">
+                    <span class="payment-badge ${paymentBadgeClass}">
+                        <span class="payment-icon">${paymentMethodIcon}</span>
+                        ${paymentMethodText}
+                    </span>
+                </td>
+                <td style="font-weight: 700; color: #27ae60; font-size: 1.1rem; letter-spacing: 0.3px;">${this.formatCurrency(parseFloat(sale.total_amount))}</td>
                 `;
             row.addEventListener('click', () => this.showReceipt(sale.order_id));
                 tbody.appendChild(row);
@@ -1159,8 +1584,8 @@ class POSSystem {
     }
 
     updateSalesSummary() {
-        // Get today's date in YYYY-MM-DD format
-        const today = new Date().toISOString().split('T')[0];
+        // Get today's date in YYYY-MM-DD format (local time)
+        const today = this.getLocalDateString();
         
         // Filter sales for today
         const todaySales = this.sales.filter(sale => {
@@ -1193,37 +1618,374 @@ class POSSystem {
         }
     }
 
-    filterSalesByDate(date) {
+    async filterSalesByDate(date) {
         if (!date) {
             this.loadSalesTable();
+            this.updateSalesSummary();
             return;
         }
 
-        const filteredSales = this.sales.filter(sale => 
-            sale.created_at.startsWith(date)
-        );
+        try {
+            // Load sales from API with date filter for better accuracy
+            const response = await fetch(`/api/sales?date=${date}`);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const filteredSales = await response.json();
+            const tbody = document.getElementById('sales-table-body');
+            tbody.innerHTML = '';
 
-        const tbody = document.getElementById('sales-table-body');
-        tbody.innerHTML = '';
-
-        if (filteredSales.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px;">No sales found for this date</td></tr>';
+            if (filteredSales.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px;">No sales found for this date</td></tr>';
+                // Update summary to show 0 for selected date
+                this.updateSalesSummaryForDate(date, filteredSales);
                 return;
             }
 
-        filteredSales.forEach(sale => {
-            const row = document.createElement('tr');
-            const date = new Date(sale.created_at).toLocaleDateString();
-            const time = new Date(sale.created_at).toLocaleTimeString();
+            filteredSales.forEach(sale => {
+                const row = document.createElement('tr');
+                const saleDate = new Date(sale.created_at);
+                const dateStr = saleDate.toLocaleDateString();
+                const time = saleDate.toLocaleTimeString();
+                
+                row.className = 'clickable-row';
+                row.style.cursor = 'pointer';
+                const paymentMethodIcon = sale.payment_method === 'card' ? '💳' : '💵';
+                const paymentMethodText = sale.payment_method === 'card' ? 'Card' : 'Cash';
+                
+                const paymentBadgeClass = sale.payment_method === 'card' ? 'card' : 'cash';
+                row.innerHTML = `
+                    <td style="font-weight: 700; color: #667eea; font-size: 1rem;">${sale.order_id || 'N/A'}</td>
+                    <td style="color: #495057;">
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <span style="font-weight: 600; color: #2c3e50; font-size: 0.95rem;">${dateStr}</span>
+                            <span style="color: #6c757d; font-size: 0.85rem; font-weight: 500;">${time}</span>
+                        </div>
+                    </td>
+                    <td style="color: #495057; font-weight: 600;">
+                        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f8f9fa; border-radius: 12px; font-size: 0.9rem;">
+                            <i class="fas fa-shopping-bag" style="font-size: 0.8rem; color: #667eea;"></i>
+                            ${sale.item_count || 0} ${sale.item_count === 1 ? 'item' : 'items'}
+                        </span>
+                    </td>
+                    <td style="text-align: center;">
+                        <span class="payment-badge ${paymentBadgeClass}">
+                            <span class="payment-icon">${paymentMethodIcon}</span>
+                            ${paymentMethodText}
+                        </span>
+                    </td>
+                    <td style="font-weight: 700; color: #27ae60; font-size: 1.1rem; letter-spacing: 0.3px;">${this.formatCurrency(parseFloat(sale.total_amount))}</td>
+                `;
+                row.addEventListener('click', () => this.showReceipt(sale.order_id));
+                tbody.appendChild(row);
+            });
             
-            row.innerHTML = `
-                <td>#${sale.id}</td>
-                <td>${date} ${time}</td>
-                <td>${sale.items ? sale.items.length : 0} items</td>
-                <td>$${parseFloat(sale.total_amount).toFixed(2)}</td>
-            `;
-            tbody.appendChild(row);
-        });
+            // Update summary for the selected date
+            this.updateSalesSummaryForDate(date, filteredSales);
+        } catch (error) {
+            console.error('Error filtering sales by date:', error);
+            this.showMessage(`Error loading sales: ${error.message}`, 'error');
+        }
+    }
+    
+    updateSalesSummaryForDate(date, sales) {
+        // Calculate revenue for the selected date
+        const revenue = sales.reduce((sum, sale) => {
+            const amount = parseFloat(sale.total_amount) || 0;
+            return sum + amount;
+        }, 0);
+        
+        const avgSale = sales.length > 0 ? revenue / sales.length : 0;
+        
+        // Check if selected date is today (using local time)
+        const today = this.getLocalDateString();
+        const isToday = date === today;
+        
+        // Update the display
+        const revenueElement = document.getElementById('today-revenue');
+        const salesElement = document.getElementById('today-sales');
+        const avgElement = document.getElementById('avg-sale');
+        
+        // Update labels if not today
+        const revenueCard = revenueElement?.closest('.summary-card');
+        const salesCard = salesElement?.closest('.summary-card');
+        const avgCard = avgElement?.closest('.summary-card');
+        
+        if (revenueCard) {
+            const label = revenueCard.querySelector('.card-content p');
+            if (label) {
+                label.textContent = isToday ? "Today's Revenue" : "Date Revenue";
+            }
+        }
+        if (salesCard) {
+            const label = salesCard.querySelector('.card-content p');
+            if (label) {
+                label.textContent = isToday ? "Today's Sales" : "Date Sales";
+            }
+        }
+        if (avgCard) {
+            const label = avgCard.querySelector('.card-content p');
+            if (label) {
+                label.textContent = isToday ? "Average Sale" : "Avg Sale";
+            }
+        }
+
+        if (revenueElement) {
+            revenueElement.textContent = `$${revenue.toFixed(2)}`;
+        }
+        if (salesElement) {
+            salesElement.textContent = sales.length;
+        }
+        if (avgElement) {
+            avgElement.textContent = `$${avgSale.toFixed(2)}`;
+        }
+    }
+
+    // Settings Management
+    loadSettings() {
+        try {
+            const saved = localStorage.getItem('pos_settings');
+            return saved ? JSON.parse(saved) : {};
+        } catch (error) {
+            console.error('Error loading settings:', error);
+            return {};
+        }
+    }
+
+    saveSettings() {
+        try {
+            // Collect all settings from form
+            const darkModeSetting = document.getElementById('dark-mode-setting');
+            const taxRateInput = document.getElementById('tax-rate');
+            const currencyInput = document.getElementById('currency-symbol');
+            const lowStockInput = document.getElementById('low-stock-threshold');
+            const dateFormatInput = document.getElementById('date-format');
+            const timeFormatInput = document.getElementById('time-format');
+            const itemsPerPageInput = document.getElementById('items-per-page');
+            const storeNameInput = document.getElementById('store-name');
+            const storeAddressInput = document.getElementById('store-address');
+            const receiptFooterInput = document.getElementById('receipt-footer');
+            const autoPrintInput = document.getElementById('auto-print');
+            const soundEnabledInput = document.getElementById('sound-enabled');
+            const desktopNotificationsInput = document.getElementById('desktop-notifications');
+            const lowStockAlertsInput = document.getElementById('low-stock-alerts');
+            const autoRefreshIntervalInput = document.getElementById('auto-refresh-interval');
+            const cacheEnabledInput = document.getElementById('cache-enabled');
+            const autoBackupFrequencyInput = document.getElementById('auto-backup-frequency');
+            const backupRetentionDaysInput = document.getElementById('backup-retention-days');
+
+            const settings = {
+                darkMode: darkModeSetting ? darkModeSetting.checked : this.settings.darkMode || false,
+                taxRate: taxRateInput ? parseFloat(taxRateInput.value) || 8.875 : this.taxRate,
+                currencySymbol: currencyInput ? currencyInput.value || '$' : this.currencySymbol,
+                lowStockThreshold: lowStockInput ? parseInt(lowStockInput.value) || 5 : this.lowStockThreshold,
+                dateFormat: dateFormatInput ? dateFormatInput.value : this.dateFormat,
+                timeFormat: timeFormatInput ? timeFormatInput.value : this.timeFormat,
+                itemsPerPage: itemsPerPageInput ? parseInt(itemsPerPageInput.value) || 50 : this.itemsPerPage,
+                storeName: storeNameInput ? storeNameInput.value : this.storeName,
+                storeAddress: storeAddressInput ? storeAddressInput.value : this.storeAddress,
+                receiptFooter: receiptFooterInput ? receiptFooterInput.value : this.receiptFooter,
+                autoPrint: autoPrintInput ? autoPrintInput.checked : this.autoPrint,
+                soundEnabled: soundEnabledInput ? soundEnabledInput.checked : this.soundEnabled,
+                desktopNotifications: desktopNotificationsInput ? desktopNotificationsInput.checked : this.desktopNotifications,
+                lowStockAlerts: lowStockAlertsInput ? lowStockAlertsInput.checked : this.lowStockAlerts,
+                autoRefreshInterval: autoRefreshIntervalInput ? parseInt(autoRefreshIntervalInput.value) || 0 : this.autoRefreshInterval,
+                cacheEnabled: cacheEnabledInput ? cacheEnabledInput.checked : this.cacheEnabled,
+                autoBackupFrequency: autoBackupFrequencyInput ? parseInt(autoBackupFrequencyInput.value) || 24 : this.autoBackupFrequency,
+                backupRetentionDays: backupRetentionDaysInput ? parseInt(backupRetentionDaysInput.value) || 30 : this.backupRetentionDays
+            };
+
+            // Update instance variables
+            this.settings = settings;
+            this.taxRate = settings.taxRate;
+            this.currencySymbol = settings.currencySymbol;
+            this.lowStockThreshold = settings.lowStockThreshold;
+            this.dateFormat = settings.dateFormat;
+            this.timeFormat = settings.timeFormat;
+            this.itemsPerPage = settings.itemsPerPage;
+            this.storeName = settings.storeName;
+            this.storeAddress = settings.storeAddress;
+            this.receiptFooter = settings.receiptFooter;
+            this.autoPrint = settings.autoPrint;
+            this.soundEnabled = settings.soundEnabled;
+            this.desktopNotifications = settings.desktopNotifications;
+            this.lowStockAlerts = settings.lowStockAlerts;
+            this.autoRefreshInterval = settings.autoRefreshInterval;
+            this.cacheEnabled = settings.cacheEnabled;
+            this.autoBackupFrequency = settings.autoBackupFrequency;
+            this.backupRetentionDays = settings.backupRetentionDays;
+
+            // Save to localStorage
+            localStorage.setItem('pos_settings', JSON.stringify(settings));
+            
+            // Apply settings
+            this.applySettings();
+            
+            this.showMessage('Settings saved successfully!', 'success');
+        } catch (error) {
+            console.error('Error saving settings:', error);
+            this.showMessage('Error saving settings', 'error');
+        }
+    }
+
+    resetSettings() {
+        try {
+            // Reset to defaults
+            this.settings = {};
+            this.taxRate = 8.875;
+            this.currencySymbol = '$';
+            this.lowStockThreshold = 5;
+            this.dateFormat = 'MM/DD/YYYY';
+            this.timeFormat = '12';
+            this.itemsPerPage = 50;
+            this.storeName = '';
+            this.storeAddress = '';
+            this.receiptFooter = '';
+            this.autoPrint = false;
+            this.soundEnabled = false;
+            this.desktopNotifications = false;
+            this.lowStockAlerts = true;
+            this.autoRefreshInterval = 0;
+            this.cacheEnabled = true;
+            this.autoBackupFrequency = 24;
+            this.backupRetentionDays = 30;
+
+            // Clear localStorage
+            localStorage.removeItem('pos_settings');
+            
+            // Reload settings screen
+            this.loadSettingsScreen();
+            this.applySettings();
+            
+            this.showMessage('Settings reset to defaults!', 'success');
+        } catch (error) {
+            console.error('Error resetting settings:', error);
+            this.showMessage('Error resetting settings', 'error');
+        }
+    }
+
+    toggleDarkMode(forceState = null) {
+        const isDark = forceState !== null ? forceState : !document.body.classList.contains('dark-mode');
+        
+        if (isDark) {
+            document.body.classList.add('dark-mode');
+            const icon = document.getElementById('dark-mode-icon');
+            if (icon) icon.className = 'fas fa-sun';
+        } else {
+            document.body.classList.remove('dark-mode');
+            const icon = document.getElementById('dark-mode-icon');
+            if (icon) icon.className = 'fas fa-moon';
+        }
+
+        // Update settings checkbox if on settings screen
+        const darkModeSetting = document.getElementById('dark-mode-setting');
+        if (darkModeSetting) {
+            darkModeSetting.checked = isDark;
+        }
+
+        // Save to settings
+        this.settings.darkMode = isDark;
+        this.saveSettings();
+    }
+
+    loadSettingsScreen() {
+        // Load current settings into form
+        const darkModeSetting = document.getElementById('dark-mode-setting');
+        if (darkModeSetting) darkModeSetting.checked = this.settings.darkMode || false;
+        
+        const taxRateInput = document.getElementById('tax-rate');
+        if (taxRateInput) taxRateInput.value = this.taxRate;
+        
+        const currencyInput = document.getElementById('currency-symbol');
+        if (currencyInput) currencyInput.value = this.currencySymbol;
+        
+        const lowStockInput = document.getElementById('low-stock-threshold');
+        if (lowStockInput) lowStockInput.value = this.lowStockThreshold;
+
+        const dateFormatInput = document.getElementById('date-format');
+        if (dateFormatInput) dateFormatInput.value = this.dateFormat || 'MM/DD/YYYY';
+
+        const timeFormatInput = document.getElementById('time-format');
+        if (timeFormatInput) timeFormatInput.value = this.timeFormat || '12';
+
+        const itemsPerPageInput = document.getElementById('items-per-page');
+        if (itemsPerPageInput) itemsPerPageInput.value = this.itemsPerPage || 50;
+
+        const storeNameInput = document.getElementById('store-name');
+        if (storeNameInput) storeNameInput.value = this.storeName || '';
+
+        const storeAddressInput = document.getElementById('store-address');
+        if (storeAddressInput) storeAddressInput.value = this.storeAddress || '';
+
+        const receiptFooterInput = document.getElementById('receipt-footer');
+        if (receiptFooterInput) receiptFooterInput.value = this.receiptFooter || '';
+
+        const autoPrintInput = document.getElementById('auto-print');
+        if (autoPrintInput) autoPrintInput.checked = this.autoPrint || false;
+
+        const soundEnabledInput = document.getElementById('sound-enabled');
+        if (soundEnabledInput) soundEnabledInput.checked = this.soundEnabled || false;
+
+        const desktopNotificationsInput = document.getElementById('desktop-notifications');
+        if (desktopNotificationsInput) desktopNotificationsInput.checked = this.desktopNotifications || false;
+
+        const lowStockAlertsInput = document.getElementById('low-stock-alerts');
+        if (lowStockAlertsInput) lowStockAlertsInput.checked = this.lowStockAlerts !== undefined ? this.lowStockAlerts : true;
+
+        const autoRefreshIntervalInput = document.getElementById('auto-refresh-interval');
+        if (autoRefreshIntervalInput) autoRefreshIntervalInput.value = this.autoRefreshInterval || 0;
+
+        const cacheEnabledInput = document.getElementById('cache-enabled');
+        if (cacheEnabledInput) cacheEnabledInput.checked = this.cacheEnabled !== undefined ? this.cacheEnabled : true;
+
+        const autoBackupFrequencyInput = document.getElementById('auto-backup-frequency');
+        if (autoBackupFrequencyInput) autoBackupFrequencyInput.value = this.autoBackupFrequency || 24;
+
+        const backupRetentionDaysInput = document.getElementById('backup-retention-days');
+        if (backupRetentionDaysInput) backupRetentionDaysInput.value = this.backupRetentionDays || 30;
+
+        // Update system status display
+        this.updateSystemStatus();
+    }
+
+    applySettings() {
+        // Apply dark mode
+        if (this.settings.darkMode) {
+            document.body.classList.add('dark-mode');
+            const icon = document.getElementById('dark-mode-icon');
+            if (icon) icon.className = 'fas fa-sun';
+        } else {
+            document.body.classList.remove('dark-mode');
+            const icon = document.getElementById('dark-mode-icon');
+            if (icon) icon.className = 'fas fa-moon';
+        }
+
+        // Update tax display in cart summary
+        const taxLabel = document.querySelector('#tax')?.parentElement;
+        if (taxLabel) {
+            const labelSpan = taxLabel.querySelector('span:first-child');
+            if (labelSpan) labelSpan.textContent = `Tax (${this.taxRate}%):`;
+        }
+
+        // Update tax display in payment modal
+        const paymentTaxLabel = document.querySelector('#payment-tax')?.parentElement;
+        if (paymentTaxLabel) {
+            const paymentLabelSpan = paymentTaxLabel.querySelector('span:first-child');
+            if (paymentLabelSpan) paymentLabelSpan.textContent = `Tax (${this.taxRate}%):`;
+        }
+
+        // Refresh displays if they exist
+        if (this.products && this.products.length > 0) {
+            this.displayProducts();
+        }
+        if (this.cart && this.cart.length > 0) {
+            this.updateCartSummary();
+        }
+    }
+
+    formatCurrency(amount) {
+        return `${this.currencySymbol}${amount.toFixed(2)}`;
     }
 
     async refreshAllData() {
@@ -1244,6 +2006,13 @@ class POSSystem {
         this.showMessage('Data refreshed successfully!', 'success');
     }
 
+    escapeHtml(text) {
+        // Helper function to escape HTML and prevent XSS
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
     showMessage(text, type = 'success') {
         const container = document.getElementById('message-container');
         const message = document.createElement('div');

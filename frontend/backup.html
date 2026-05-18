@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Backup Management - POS System</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Reset and base styles */
         * {
@@ -143,6 +143,17 @@
             background: #f8f9fa;
             border-radius: 8px;
             border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .status-item.clickable {
+            cursor: pointer;
+        }
+
+        .status-item.clickable:hover {
+            background: #e9ecef;
+            transform: translateX(3px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         
         .status-label {
@@ -655,16 +666,138 @@
     </div>
 
     <script>
+        // Professional notification system
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.innerHTML = `
+                <div class="notification-content">
+                    <span class="notification-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+                    <span class="notification-message">${message}</span>
+                    <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>
+                </div>
+            `;
+            
+            // Add styles if not already present
+            if (!document.getElementById('notification-styles')) {
+                const styles = document.createElement('style');
+                styles.id = 'notification-styles';
+                styles.textContent = `
+                    .notification {
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        background: white;
+                        border-radius: 8px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                        z-index: 10000;
+                        max-width: 400px;
+                        animation: slideIn 0.3s ease-out;
+                    }
+                    .notification-success { border-left: 4px solid #10b981; }
+                    .notification-error { border-left: 4px solid #ef4444; }
+                    .notification-info { border-left: 4px solid #3b82f6; }
+                    .notification-content {
+                        display: flex;
+                        align-items: center;
+                        padding: 12px 16px;
+                        gap: 8px;
+                    }
+                    .notification-icon { font-size: 18px; }
+                    .notification-message { flex: 1; white-space: pre-line; }
+                    .notification-close {
+                        background: none;
+                        border: none;
+                        font-size: 18px;
+                        cursor: pointer;
+                        color: #6b7280;
+                        padding: 0;
+                        width: 20px;
+                        height: 20px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    .notification-close:hover { color: #374151; }
+                    @keyframes slideIn {
+                        from { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                `;
+                document.head.appendChild(styles);
+            }
+            
+            document.body.appendChild(notification);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+
         class BackupManager {
             constructor() {
                 this.init();
             }
 
             init() {
-                this.loadBackupStatus();
-                this.loadBackupList();
-                this.loadBackupLogs();
-                this.setupEventListeners();
+                console.log('BackupManager.init() called');
+                
+                // Setup event listeners first
+                try {
+                    this.setupEventListeners();
+                } catch (err) {
+                    console.error('Error setting up event listeners:', err);
+                }
+                
+                // Set timeout to show error if loading takes too long
+                setTimeout(() => {
+                    const summaryEl = document.getElementById('backup-summary');
+                    const statusEl = document.getElementById('backup-status');
+                    const logsEl = document.getElementById('backup-logs');
+                    
+                    if (summaryEl && summaryEl.innerHTML.includes('Loading')) {
+                        summaryEl.innerHTML = '<div class="error"><i class="fas fa-exclamation-triangle"></i>Loading timeout - please check console and refresh</div>';
+                    }
+                    if (statusEl && statusEl.innerHTML.includes('Loading')) {
+                        statusEl.innerHTML = '<div class="error"><i class="fas fa-exclamation-triangle"></i>Loading timeout - please check console and refresh</div>';
+                    }
+                    if (logsEl && logsEl.innerHTML.includes('Loading')) {
+                        logsEl.innerHTML = '<div class="error"><i class="fas fa-exclamation-triangle"></i>Loading timeout - please check console and refresh</div>';
+                    }
+                }, 10000); // 10 second timeout
+                
+                // Load data with error handling
+                console.log('Loading backup data...');
+                Promise.all([
+                    this.loadBackupStatus().catch(err => {
+                        console.error('Status load error:', err);
+                        const statusEl = document.getElementById('backup-status');
+                        if (statusEl) {
+                            statusEl.innerHTML = `<div class="error"><i class="fas fa-exclamation-triangle"></i>Failed to load: ${err.message}</div>`;
+                        }
+                    }),
+                    this.loadBackupList().catch(err => {
+                        console.error('List load error:', err);
+                        const summaryEl = document.getElementById('backup-summary');
+                        if (summaryEl) {
+                            summaryEl.innerHTML = `<div class="error"><i class="fas fa-exclamation-triangle"></i>Failed to load: ${err.message}</div>`;
+                        }
+                    }),
+                    this.loadBackupLogs().catch(err => {
+                        console.error('Logs load error:', err);
+                        const logsEl = document.getElementById('backup-logs');
+                        if (logsEl) {
+                            logsEl.innerHTML = `<div class="error"><i class="fas fa-exclamation-triangle"></i>Failed to load: ${err.message}</div>`;
+                        }
+                    })
+                ]).then(() => {
+                    console.log('All backup data loaded');
+                }).catch(err => {
+                    console.error('Error loading backup data:', err);
+                });
             }
 
             setupEventListeners() {
@@ -687,102 +820,274 @@
             async loadBackupStatus() {
                 try {
                     const response = await fetch('/backup/status');
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
                     const status = await response.json();
                     this.displayBackupStatus(status);
                 } catch (error) {
                     console.error('Error loading backup status:', error);
-                    document.getElementById('backup-status').innerHTML = '<div class="error"><i class="fas fa-exclamation-triangle"></i>Failed to load backup status</div>';
+                    document.getElementById('backup-status').innerHTML = `<div class="error"><i class="fas fa-exclamation-triangle"></i>Failed to load backup status: ${error.message}</div>`;
                 }
             }
 
             async loadBackupList() {
                 try {
+                    console.log('Fetching backup list...');
                     const response = await fetch('/backup/list');
+                    console.log('Response status:', response.status, response.statusText);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
                     const result = await response.json();
-                    this.displayBackupList(result);
-                    this.displayBackupSummary(result);
+                    console.log('Backup list result:', result);
+                    if (result && result.success) {
+                        this.displayBackupList(result);
+                        this.displayBackupSummary(result);
+                    } else {
+                        throw new Error('Invalid response format');
+                    }
                 } catch (error) {
                     console.error('Error loading backup list:', error);
-                    document.getElementById('backup-list').innerHTML = '<div class="error"><i class="fas fa-exclamation-triangle"></i>Failed to load backup list</div>';
+                    const summaryElement = document.getElementById('backup-summary');
+                    if (summaryElement) {
+                        summaryElement.innerHTML = `<div class="error"><i class="fas fa-exclamation-triangle"></i>Failed to load backup list: ${error.message}</div>`;
+                    }
+                    const listElement = document.getElementById('backup-list');
+                    if (listElement) {
+                        listElement.innerHTML = `<div class="error"><i class="fas fa-exclamation-triangle"></i>Failed to load backup list: ${error.message}</div>`;
+                    }
                 }
             }
 
             async loadBackupLogs() {
                 try {
                     const response = await fetch('/backup/list');
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
                     const result = await response.json();
                     this.displayBackupLogs(result);
                 } catch (error) {
                     console.error('Error loading backup logs:', error);
-                    document.getElementById('backup-logs').innerHTML = '<div class="error"><i class="fas fa-exclamation-triangle"></i>Failed to load backup logs</div>';
+                    document.getElementById('backup-logs').innerHTML = `<div class="error"><i class="fas fa-exclamation-triangle"></i>Failed to load backup logs: ${error.message}</div>`;
                 }
             }
 
             displayBackupStatus(status) {
+                if (!status || !status.stats) {
+                    document.getElementById('backup-status').innerHTML = '<div class="error"><i class="fas fa-exclamation-triangle"></i>Invalid backup status data</div>';
+                    return;
+                }
+                // Format size nicely
+                const formatSize = (bytes) => {
+                    if (bytes < 1024) return bytes + ' B';
+                    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+                    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+                };
+                
+                // Format date nicely
+                const formatDate = (dateString) => {
+                    if (!dateString) return 'None';
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                };
+                
+                // Get newest backup filename for download
+                const getNewestBackupFilename = async () => {
+                    try {
+                        const response = await fetch('/backup/list');
+                        if (response.ok) {
+                            const result = await response.json();
+                            if (result.success && result.backups && result.backups.length > 0) {
+                                return result.backups[0].fileName;
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Error getting newest backup:', err);
+                    }
+                    return null;
+                };
+                
+                // Calculate next backup time (24 hours from last backup if scheduler is running)
+                let nextBackupText = 'Not scheduled';
+                if (status.isRunning && status.stats.newestBackup) {
+                    const lastBackup = new Date(status.stats.newestBackup);
+                    const nextBackup = new Date(lastBackup.getTime() + 24 * 60 * 60 * 1000);
+                    const now = new Date();
+                    if (nextBackup > now) {
+                        const hoursUntil = Math.floor((nextBackup - now) / (1000 * 60 * 60));
+                        const minutesUntil = Math.floor(((nextBackup - now) % (1000 * 60 * 60)) / (1000 * 60));
+                        nextBackupText = `In ${hoursUntil}h ${minutesUntil}m`;
+                    } else {
+                        nextBackupText = 'Due now';
+                    }
+                }
+                
+                // Create clickable status items
                 const statusHtml = `
-                    <div class="status-grid">
-                        <div class="status-item">
-                            <span class="status-label">Scheduler Status:</span>
-                            <span class="status-value ${status.isRunning ? 'success' : 'warning'}">
-                                ${status.isRunning ? 'Running' : 'Stopped'}
-                            </span>
+                    <div class="status-grid" style="grid-template-columns: 1fr;">
+                        <div class="status-item ${status.isRunning ? 'clickable' : 'clickable'}" ${status.isRunning ? `onclick="window.backupManager.stopScheduler()" title="Click to stop scheduler"` : `onclick="window.backupManager.startScheduler()" title="Click to start scheduler"`} style="background: linear-gradient(135deg, ${status.isRunning ? '#d4edda' : '#fff3cd'} 0%, ${status.isRunning ? '#c3e6cb' : '#ffeaa7'} 100%); padding: 18px; border-left: 4px solid ${status.isRunning ? '#28a745' : '#ffc107'};">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span class="status-label" style="font-size: 1rem;"><i class="fas fa-${status.isRunning ? 'play-circle' : 'stop-circle'}"></i> Scheduler:</span>
+                                <span class="status-value ${status.isRunning ? 'success' : 'warning'}" style="font-size: 1.2rem; font-weight: 700;">
+                                    ${status.isRunning ? 'Running' : 'Stopped'}
+                                </span>
+                            </div>
+                            <div style="font-size: 0.85rem; color: #666; margin-top: 8px;">
+                                <i class="fas fa-info-circle"></i> ${status.isRunning ? 'Automatic backups every 24 hours' : 'Click to enable automatic backups'}
+                            </div>
                         </div>
-                        <div class="status-item">
-                            <span class="status-label">Total Backups:</span>
-                            <span class="status-value">${status.stats.totalBackups}</span>
-                        </div>
-                        <div class="status-item">
-                            <span class="status-label">Total Size:</span>
-                            <span class="status-value">${(status.stats.totalSize / 1024).toFixed(2)} KB</span>
-                        </div>
-                        <div class="status-item">
-                            <span class="status-label">Newest Backup:</span>
-                            <span class="status-value">${status.stats.newestBackup ? new Date(status.stats.newestBackup).toLocaleString() : 'None'}</span>
-                        </div>
-                        ${status.nextBackup ? `
-                        <div class="status-item">
-                            <span class="status-label">Next Backup:</span>
-                            <span class="status-value">${new Date(status.nextBackup).toLocaleString()}</span>
+                        
+                        ${status.isRunning ? `
+                        <div class="status-item" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 18px; border-left: 4px solid #17a2b8;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span class="status-label" style="font-size: 1rem;"><i class="fas fa-calendar-alt"></i> Next Backup:</span>
+                                <span class="status-value" style="font-size: 1.1rem; color: #17a2b8; font-weight: 700;">${nextBackupText}</span>
+                            </div>
+                            <div style="font-size: 0.85rem; color: #666; margin-top: 8px;">
+                                <i class="fas fa-clock"></i> ${status.stats.newestBackup ? `Last: ${formatDate(status.stats.newestBackup)}` : 'No backups yet'}
+                            </div>
                         </div>
                         ` : ''}
+                        
+                        <div class="status-item" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 18px; border-left: 4px solid #6c757d;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span class="status-label" style="font-size: 1rem;"><i class="fas fa-shield-alt"></i> Backup Health:</span>
+                                <span class="status-value ${status.stats.totalBackups > 0 ? 'success' : 'warning'}" style="font-size: 1.1rem; font-weight: 700;">
+                                    ${status.stats.totalBackups > 0 ? 'Good' : 'No Backups'}
+                                </span>
+                            </div>
+                            <div style="font-size: 0.85rem; color: #666; margin-top: 8px;">
+                                <i class="fas fa-${status.stats.totalBackups > 0 ? 'check-circle' : 'exclamation-triangle'}"></i> ${status.stats.totalBackups > 0 ? `${status.stats.totalBackups} backup${status.stats.totalBackups > 1 ? 's' : ''} available` : 'Create your first backup'}
+                            </div>
+                        </div>
                     </div>
                 `;
                 document.getElementById('backup-status').innerHTML = statusHtml;
             }
 
             displayBackupSummary(result) {
-                const summaryElement = document.getElementById('backup-summary');
-                
-                if (result.success && result.backups && result.backups.length > 0) {
-                    const totalSize = result.backups.reduce((sum, backup) => sum + backup.size, 0);
-                    const newestBackup = result.backups[0];
+                try {
+                    const summaryElement = document.getElementById('backup-summary');
+                    if (!summaryElement) {
+                        console.error('backup-summary element not found');
+                        return;
+                    }
                     
-                    summaryElement.innerHTML = `
-                        <div class="status-grid">
-                            <div class="status-item">
-                                <span class="status-label">Total Backups:</span>
-                                <span class="status-value success">${result.backups.length}</span>
+                    if (!result) {
+                        summaryElement.innerHTML = '<div class="error"><i class="fas fa-exclamation-triangle"></i>No data received</div>';
+                        return;
+                    }
+                    
+                    if (result.success && result.backups && result.backups.length > 0) {
+                        const totalSize = result.backups.reduce((sum, backup) => sum + (backup.size || 0), 0);
+                        const newestBackup = result.backups[0];
+                        const oldestBackup = result.backups[result.backups.length - 1];
+                        const avgSize = totalSize / result.backups.length;
+                        
+                        // Calculate time since newest backup
+                        const newestDate = new Date(newestBackup.created);
+                        const now = new Date();
+                        const hoursSince = Math.floor((now - newestDate) / (1000 * 60 * 60));
+                        const daysSince = Math.floor(hoursSince / 24);
+                        let timeSinceText = '';
+                        if (daysSince > 0) {
+                            timeSinceText = `${daysSince} day${daysSince > 1 ? 's' : ''} ago`;
+                        } else if (hoursSince > 0) {
+                            timeSinceText = `${hoursSince} hour${hoursSince > 1 ? 's' : ''} ago`;
+                        } else {
+                            const minutesSince = Math.floor((now - newestDate) / (1000 * 60));
+                            timeSinceText = minutesSince > 0 ? `${minutesSince} minute${minutesSince > 1 ? 's' : ''} ago` : 'Just now';
+                        }
+                        
+                        // Format size nicely
+                        const formatSize = (bytes) => {
+                            if (bytes < 1024) return bytes + ' B';
+                            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+                            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+                        };
+                        
+                        // Format date nicely
+                        const formatDate = (dateString) => {
+                            const date = new Date(dateString);
+                            return date.toLocaleDateString('en-US', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true
+                            });
+                        };
+                        
+                        summaryElement.innerHTML = `
+                            <div class="status-grid" style="grid-template-columns: 1fr;">
+                                <div class="status-item clickable" onclick="window.backupManager.showBackupModal()" title="Click to view all backups" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 18px; border-left: 4px solid #667eea;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <span class="status-label" style="font-size: 1rem;"><i class="fas fa-database"></i> Total Backups:</span>
+                                        <span class="status-value success" style="font-size: 1.3rem;">${result.backups.length}</span>
+                                    </div>
+                                    <div style="font-size: 0.85rem; color: #666; margin-top: 8px;">
+                                        <i class="fas fa-info-circle"></i> Click to view all backup files
+                                    </div>
+                                </div>
+                                
+                                <div class="status-item" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 18px; border-left: 4px solid #28a745;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <span class="status-label" style="font-size: 1rem;"><i class="fas fa-hdd"></i> Total Storage:</span>
+                                        <span class="status-value" style="font-size: 1.2rem; color: #28a745; font-weight: 700;">${formatSize(totalSize)}</span>
+                                    </div>
+                                    <div style="font-size: 0.85rem; color: #666; margin-top: 8px;">
+                                        <i class="fas fa-chart-pie"></i> Average: ${formatSize(avgSize)} per backup
+                                    </div>
+                                </div>
+                                
+                                <div class="status-item clickable" onclick="window.backupManager.downloadBackup('${newestBackup.fileName}')" title="Click to download newest backup" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 18px; border-left: 4px solid #17a2b8;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <span class="status-label" style="font-size: 1rem;"><i class="fas fa-calendar-check"></i> Latest Backup:</span>
+                                        <span class="status-value" style="font-size: 1rem;">${formatDate(newestBackup.created)}</span>
+                                    </div>
+                                    <div style="font-size: 0.85rem; color: #666; margin-top: 8px;">
+                                        <i class="fas fa-clock"></i> ${timeSinceText} • <i class="fas fa-download"></i> Click to download
+                                    </div>
+                                </div>
+                                
+                                <div class="status-item" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 18px; border-left: 4px solid #ffc107;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <span class="status-label" style="font-size: 1rem;"><i class="fas fa-calendar-times"></i> Oldest Backup:</span>
+                                        <span class="status-value" style="font-size: 1rem;">${formatDate(oldestBackup.created)}</span>
+                                    </div>
+                                    <div style="font-size: 0.85rem; color: #666; margin-top: 8px;">
+                                        <i class="fas fa-history"></i> Retention: ${Math.floor((newestDate - new Date(oldestBackup.created)) / (1000 * 60 * 60 * 24))} days
+                                    </div>
+                                </div>
                             </div>
-                            <div class="status-item">
-                                <span class="status-label">Total Size:</span>
-                                <span class="status-value">${(totalSize / 1024).toFixed(2)} KB</span>
-                            </div>
-                            <div class="status-item">
-                                <span class="status-label">Newest:</span>
-                                <span class="status-value">${new Date(newestBackup.created).toLocaleDateString()}</span>
-                            </div>
-                            <div class="status-item">
-                                <span class="status-label">Type:</span>
-                                <span class="status-value">${newestBackup.type}</span>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    summaryElement.innerHTML = '<div class="no-data"><i class="fas fa-archive"></i><p>No backups found</p></div>';
+                        `;
+                    } else {
+                        summaryElement.innerHTML = '<div class="no-data"><i class="fas fa-archive"></i><p>No backups found. Create your first backup to get started!</p></div>';
+                    }
+                } catch (error) {
+                    console.error('Error in displayBackupSummary:', error);
+                    const summaryElement = document.getElementById('backup-summary');
+                    if (summaryElement) {
+                        summaryElement.innerHTML = `<div class="error"><i class="fas fa-exclamation-triangle"></i>Error displaying summary: ${error.message}</div>`;
+                    }
                 }
             }
 
             displayBackupList(result) {
+                if (!result) {
+                    console.error('Invalid result in displayBackupList');
+                    return;
+                }
                 
                 // Update backup count in both header and modal
                 const countElement = document.getElementById('backup-count');
@@ -809,22 +1114,83 @@
                 }
 
 
-                const backupHtml = result.backups.map(backup => `
-                    <div class="backup-card" onclick="backupManager.downloadBackup('${backup.fileName}')">
-                        <h4>${backup.fileName}</h4>
-                        <div class="backup-info">
-                            <div><i class="fas fa-calendar"></i> ${new Date(backup.created).toLocaleString()}</div>
-                            <div><i class="fas fa-hdd"></i> ${(backup.size / 1024).toFixed(2)} KB</div>
-                            <div><i class="fas fa-tag"></i> ${backup.type}</div>
+                // Format size nicely
+                const formatSize = (bytes) => {
+                    if (bytes < 1024) return bytes + ' B';
+                    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+                    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+                };
+
+                // Format date nicely
+                const formatDate = (dateString) => {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                };
+
+                const backupHtml = result.backups.map((backup, index) => {
+                    const isManual = backup.fileName.includes('manual');
+                    const backupType = isManual ? 'Manual' : 'Auto';
+                    const typeColor = isManual ? '#17a2b8' : '#28a745';
+                    const typeIcon = isManual ? 'fa-hand-paper' : 'fa-clock';
+                    
+                    // Calculate age
+                    const backupDate = new Date(backup.created);
+                    const now = new Date();
+                    const daysAgo = Math.floor((now - backupDate) / (1000 * 60 * 60 * 24));
+                    const hoursAgo = Math.floor((now - backupDate) / (1000 * 60 * 60));
+                    let ageText = '';
+                    if (daysAgo > 0) {
+                        ageText = `${daysAgo} day${daysAgo > 1 ? 's' : ''} ago`;
+                    } else if (hoursAgo > 0) {
+                        ageText = `${hoursAgo} hour${hoursAgo > 1 ? 's' : ''} ago`;
+                    } else {
+                        const minutesAgo = Math.floor((now - backupDate) / (1000 * 60));
+                        ageText = minutesAgo > 0 ? `${minutesAgo} minute${minutesAgo > 1 ? 's' : ''} ago` : 'Just now';
+                    }
+                    
+                    return `
+                        <div class="backup-card" onclick="backupManager.downloadBackup('${backup.fileName}')" style="position: relative;">
+                            ${index === 0 ? '<div style="position: absolute; top: 10px; right: 10px; background: #28a745; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; z-index: 1;">NEWEST</div>' : ''}
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                                <h4 style="flex: 1; margin: 0; word-break: break-word; font-size: 0.95rem; line-height: 1.4; padding-right: 10px;">${backup.fileName}</h4>
+                                <span style="background: ${typeColor}; color: white; padding: 6px 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; margin-left: 10px; display: flex; align-items: center; gap: 4px;">
+                                    <i class="fas ${typeIcon}"></i> ${backupType}
+                                </span>
+                            </div>
+                            <div class="backup-info" style="margin-bottom: 15px;">
+                                <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                                    <i class="fas fa-calendar" style="color: #667eea; width: 16px;"></i>
+                                    <span><strong>Created:</strong> ${formatDate(backup.created)}</span>
+                                </div>
+                                <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                                    <i class="fas fa-clock" style="color: #6c757d; width: 16px;"></i>
+                                    <span><strong>Age:</strong> ${ageText}</span>
+                                </div>
+                                <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                                    <i class="fas fa-hdd" style="color: #28a745; width: 16px;"></i>
+                                    <span><strong>Size:</strong> ${formatSize(backup.size)}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <i class="fas fa-tag" style="color: #ffc107; width: 16px;"></i>
+                                    <span><strong>Type:</strong> ${(backup.type || 'database').charAt(0).toUpperCase() + (backup.type || 'database').slice(1)}</span>
+                                </div>
+                            </div>
+                            <div class="backup-actions">
+                                <button class="btn-download" onclick="event.stopPropagation(); backupManager.downloadBackup('${backup.fileName}')" style="width: 100%;">
+                                    <i class="fas fa-download"></i>
+                                    Download Backup
+                                </button>
+                            </div>
                         </div>
-                        <div class="backup-actions">
-                            <button class="btn-download">
-                                <i class="fas fa-download"></i>
-                                Download
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
 
                 document.getElementById('backup-list').innerHTML = backupHtml;
             }
@@ -839,13 +1205,13 @@
                     const result = await response.json();
                     
                     if (result.success) {
-                        alert('Backup created successfully!');
+                        showNotification('Backup created successfully!', 'success');
                         this.refreshAll();
                     } else {
-                        alert('Backup failed: ' + result.error);
+                        showNotification('Backup failed: ' + result.error, 'error');
                     }
                 } catch (error) {
-                    alert('Error creating backup: ' + error.message);
+                    showNotification('Error creating backup: ' + error.message, 'error');
                 } finally {
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fas fa-plus"></i> Create Backup';
@@ -858,13 +1224,13 @@
                     const result = await response.json();
                     
                     if (result.success) {
-                        alert('Backup scheduler started!');
+                        showNotification('Backup scheduler started!', 'success');
                         this.loadBackupStatus();
                     } else {
-                        alert('Failed to start scheduler: ' + result.error);
+                        showNotification('Failed to start scheduler: ' + result.error, 'error');
                     }
                 } catch (error) {
-                    alert('Error starting scheduler: ' + error.message);
+                    showNotification('Error starting scheduler: ' + error.message, 'error');
                 }
             }
 
@@ -874,13 +1240,13 @@
                     const result = await response.json();
                     
                     if (result.success) {
-                        alert('Backup scheduler stopped!');
+                        showNotification('Backup scheduler stopped!', 'success');
                         this.loadBackupStatus();
                     } else {
-                        alert('Failed to stop scheduler: ' + result.error);
+                        showNotification('Failed to stop scheduler: ' + result.error, 'error');
                     }
                 } catch (error) {
-                    alert('Error stopping scheduler: ' + error.message);
+                    showNotification('Error stopping scheduler: ' + error.message, 'error');
                 }
             }
 
@@ -895,16 +1261,16 @@
                     
                     if (result.success) {
                         if (result.deletedCount > 0) {
-                            alert(`Cleanup completed!\n\nDeleted: ${result.deletedCount} old backups\nFreed: ${result.freedSpaceKB} KB`);
+                            showNotification(`Cleanup completed!\n\nDeleted: ${result.deletedCount} old backups\nFreed: ${result.freedSpaceKB} KB`, 'success');
                         } else {
-                            alert('No old backups found to delete.\n\nAll backups are less than 30 days old.');
+                            showNotification('No old backups found to delete.\n\nAll backups are less than 30 days old.', 'info');
                         }
                         this.refreshAll();
                     } else {
-                        alert('Cleanup failed: ' + result.error);
+                        showNotification('Cleanup failed: ' + result.error, 'error');
                     }
                 } catch (error) {
-                    alert('Error during cleanup: ' + error.message);
+                    showNotification('Error during cleanup: ' + error.message, 'error');
                 } finally {
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fas fa-broom"></i> Cleanup Old';
@@ -917,6 +1283,36 @@
                     return;
                 }
 
+                // Format size nicely
+                const formatSize = (bytes) => {
+                    if (bytes < 1024) return bytes + ' B';
+                    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+                };
+
+                // Format date nicely
+                const formatDate = (dateString) => {
+                    if (!dateString) return 'Unknown';
+                    const date = new Date(dateString);
+                    if (isNaN(date.getTime())) {
+                        console.error('Invalid date:', dateString);
+                        return 'Invalid date';
+                    }
+                    const now = new Date();
+                    const diffTime = Math.abs(now - date);
+                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                    
+                    if (diffDays === 0) {
+                        return 'Today, ' + date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                    } else if (diffDays === 1) {
+                        return 'Yesterday, ' + date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                    } else if (diffDays < 7) {
+                        return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+                    } else {
+                        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+                    }
+                };
+
                 // Sort backups by creation date (newest first) and take last 10
                 const recentBackups = result.backups
                     .sort((a, b) => new Date(b.created) - new Date(a.created))
@@ -926,23 +1322,31 @@
                     const isManual = backup.fileName.includes('manual');
                     const backupType = isManual ? 'Manual' : 'Auto';
                     const typeColor = isManual ? '#17a2b8' : '#28a745';
-                    const typeIcon = isManual ? 'fas fa-hand-paper' : 'fas fa-clock';
+                    const typeIcon = isManual ? 'fa-hand-paper' : 'fa-clock';
+                    
+                    // Extract a cleaner filename for display
+                    const displayName = backup.fileName.replace('pos_backup_', '').replace('.db', '').replace(/-/g, ' ').substring(0, 30) + '...';
                     
                     return `
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 8px; background: white; font-size: 0.85rem; transition: all 0.3s ease;">
-                            <div style="display: flex; align-items: center; gap: 12px;">
-                                <div style="background: ${typeColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; min-width: 50px; text-align: center;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border: 1px solid #e9ecef; border-radius: 10px; margin-bottom: 10px; background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%); font-size: 0.85rem; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                            <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
+                                <div style="background: ${typeColor}; color: white; padding: 6px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 600; min-width: 55px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                                    <i class="fas ${typeIcon}"></i>
                                     ${backupType}
                                 </div>
                                 <div style="flex: 1; min-width: 0;">
-                                    <div style="font-weight: 600; color: #2c3e50; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${backup.fileName}</div>
-                                    <div style="font-size: 0.75rem; color: #666;">
-                                        ${new Date(backup.created).toLocaleDateString()} • ${(backup.size / 1024).toFixed(1)}KB
+                                    <div style="font-weight: 600; color: #2c3e50; font-size: 0.9rem; margin-bottom: 4px; word-break: break-word; line-height: 1.3;" title="${backup.fileName}">
+                                        ${backup.fileName.length > 40 ? backup.fileName.substring(0, 40) + '...' : backup.fileName}
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: #666; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <span><i class="fas fa-calendar"></i> ${formatDate(backup.created)}</span>
+                                        <span>•</span>
+                                        <span><i class="fas fa-hdd"></i> ${formatSize(backup.size)}</span>
                                     </div>
                                 </div>
                             </div>
-                            <div style="color: #28a745; font-size: 0.8rem;">
-                                <i class="fas fa-check-circle"></i>
+                            <div style="color: #28a745; font-size: 1rem; margin-left: 8px;">
+                                <i class="fas fa-check-circle" title="Backup successful"></i>
                             </div>
                         </div>
                     `;
@@ -975,14 +1379,82 @@
             downloadBackup(fileName) {
                 // Create download link
                 const link = document.createElement('a');
-                link.href = `/backups/${fileName}`;
+                link.href = `/backups/${encodeURIComponent(fileName)}`;
                 link.download = fileName;
+                document.body.appendChild(link);
                 link.click();
+                document.body.removeChild(link);
+            }
+
+            async downloadNewestBackup() {
+                try {
+                    const response = await fetch('/backup/list');
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    const result = await response.json();
+                    if (result.success && result.backups && result.backups.length > 0) {
+                        this.downloadBackup(result.backups[0].fileName);
+                        showNotification('Downloading newest backup...', 'info');
+                    } else {
+                        showNotification('No backups available to download', 'warning');
+                    }
+                } catch (error) {
+                    console.error('Error downloading newest backup:', error);
+                    showNotification('Error downloading backup: ' + error.message, 'error');
+                }
             }
         }
 
-        // Initialize backup manager
-        const backupManager = new BackupManager();
+        // Wait for DOM to be ready
+        function initBackupManager() {
+            // Check if page is being served from server
+            if (window.location.protocol === 'file:') {
+                document.body.innerHTML = `
+                    <div style="padding: 50px; text-align: center; font-family: Arial, sans-serif;">
+                        <h1 style="color: #e74c3c;">⚠️ Incorrect Access Method</h1>
+                        <p style="font-size: 1.2rem; margin: 20px 0;">
+                            This page must be accessed through the POS System server.
+                        </p>
+                        <p style="margin: 20px 0;">
+                            Please make sure the server is running and access this page at:
+                        </p>
+                        <p style="font-size: 1.5rem; color: #3498db; font-weight: bold; margin: 20px 0;">
+                            <a href="http://localhost:8080/backup.html" style="color: #3498db;">http://localhost:8080/backup.html</a>
+                        </p>
+                        <p style="margin-top: 30px;">
+                            <a href="http://localhost:8080/" style="color: #3498db; text-decoration: none; font-size: 1.1rem;">
+                                ← Back to POS System
+                            </a>
+                        </p>
+                    </div>
+                `;
+                return;
+            }
+
+            try {
+                console.log('Initializing BackupManager...');
+                // Initialize backup manager
+                window.backupManager = new BackupManager();
+                console.log('BackupManager initialized successfully');
+            } catch (error) {
+                console.error('Error initializing BackupManager:', error);
+                // Show error on page
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                errorDiv.style.margin = '20px';
+                errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error initializing backup manager: ${error.message}`;
+                document.body.insertBefore(errorDiv, document.body.firstChild);
+            }
+        }
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initBackupManager);
+        } else {
+            // DOM is already ready
+            initBackupManager();
+        }
     </script>
 </body>
 </html>

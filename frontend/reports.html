@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reports & Analytics - POS System</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         /* Reset and base styles */
@@ -97,6 +97,8 @@
             transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
+            cursor: pointer;
+            user-select: none;
         }
         
         .stat-card::before {
@@ -112,6 +114,12 @@
         .stat-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            border-left-color: #764ba2;
+        }
+        
+        .stat-card:active {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
         }
         
         .stat-card h3 {
@@ -142,6 +150,9 @@
             border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.08);
             margin-bottom: 30px;
+            opacity: 1;
+            visibility: visible;
+            display: block;
         }
         
         .report-controls h2 {
@@ -156,12 +167,16 @@
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
             align-items: end;
+            opacity: 1;
+            visibility: visible;
         }
         
         .control-group {
             display: flex;
             flex-direction: column;
             gap: 8px;
+            opacity: 1;
+            visibility: visible;
         }
         
         .control-group label {
@@ -180,6 +195,15 @@
             font-size: 14px;
             transition: all 0.3s ease;
             background: white;
+            color: #2c3e50;
+            opacity: 1;
+            visibility: visible;
+            width: 100%;
+        }
+        
+        .control-group select:hover,
+        .control-group input:hover {
+            border-color: #667eea;
         }
         
         .control-group input:focus,
@@ -187,6 +211,12 @@
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .control-group select option {
+            background: white;
+            color: #2c3e50;
+            padding: 10px;
         }
         
         /* Buttons */
@@ -259,7 +289,14 @@
             min-height: 400px;
             max-height: 80vh;
             overflow-y: auto;
-            overflow-x: hidden;
+            overflow-x: auto;
+        }
+        
+        /* Table container for better scrolling */
+        .report-table-container {
+            overflow-x: auto;
+            width: 100%;
+            margin-top: 20px;
         }
         
         .report-content h2 {
@@ -283,6 +320,7 @@
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            table-layout: fixed;
         }
         
         .report-table thead {
@@ -292,14 +330,14 @@
         
         .report-table th,
         .report-table td {
-            padding: 15px;
+            padding: 12px 15px;
             text-align: left;
             border-bottom: 1px solid #e1e5e9;
             word-wrap: break-word;
             word-break: break-word;
             white-space: normal;
-            max-width: 200px;
             overflow-wrap: break-word;
+            vertical-align: top;
         }
         
         .report-table th {
@@ -307,6 +345,43 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
             font-size: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        /* Column width distribution for inventory report */
+        .report-table th:nth-child(1),
+        .report-table td:nth-child(1) {
+            width: 25%;
+            min-width: 150px;
+        }
+        
+        .report-table th:nth-child(2),
+        .report-table td:nth-child(2) {
+            width: 20%;
+            min-width: 120px;
+        }
+        
+        .report-table th:nth-child(3),
+        .report-table td:nth-child(3) {
+            width: 12%;
+            min-width: 80px;
+            text-align: right;
+        }
+        
+        .report-table th:nth-child(4),
+        .report-table td:nth-child(4) {
+            width: 12%;
+            min-width: 80px;
+            text-align: right;
+        }
+        
+        .report-table th:nth-child(5),
+        .report-table td:nth-child(5) {
+            width: 15%;
+            min-width: 100px;
+            text-align: center;
         }
         
         .report-table tbody tr {
@@ -488,18 +563,23 @@
         <div class="stats-grid">
             <div class="stat-card">
                 <h3 id="today-revenue">$0.00</h3>
-                <p>Today's Revenue</p>
+                <p>Recent Revenue</p>
                 <small id="today-date" style="color: #888; font-size: 0.9rem;"></small>
             </div>
             <div class="stat-card">
                 <h3 id="today-sales">0</h3>
-                <p>Today's Orders</p>
+                <p>Recent Orders</p>
                 <small style="color: #888; font-size: 0.9rem;">Live Data</small>
             </div>
             <div class="stat-card">
                 <h3 id="total-products">0</h3>
                 <p>Total Products</p>
                 <small style="color: #888; font-size: 0.9rem;">In Inventory</small>
+            </div>
+            <div class="stat-card">
+                <h3 id="avg-sale">$0.00</h3>
+                <p>Average Sale</p>
+                <small style="color: #888; font-size: 0.9rem;">Today</small>
             </div>
             <div class="stat-card">
                 <h3 id="low-stock-count">0</h3>
@@ -566,7 +646,8 @@
         // Enhanced Reports Manager
         class EnhancedReportsManager {
             constructor() {
-                console.log('🚀 Initializing Enhanced Reports Manager');
+                // Initializing Enhanced Reports Manager
+                this.mostRecentSalesDate = null;
                 this.init();
             }
             
@@ -574,18 +655,60 @@
                 this.setupEventListeners();
                 this.setDefaultDates();
                 this.loadQuickStats();
-                console.log('✅ Reports Manager initialized successfully');
+                
+                // Auto-refresh quick stats every 30 seconds for live data
+                setInterval(() => {
+                    this.loadQuickStats();
+                }, 30000);
+                
+                // Reports Manager initialized successfully
             }
             
             setupEventListeners() {
-                console.log('🔧 Setting up event listeners');
+                // Setting up event listeners
+                
+                // Stat card click handlers
+                const revenueCard = document.getElementById('today-revenue')?.closest('.stat-card');
+                if (revenueCard) {
+                    revenueCard.addEventListener('click', () => {
+                        this.showRevenueReport();
+                    });
+                }
+                
+                const ordersCard = document.getElementById('today-sales')?.closest('.stat-card');
+                if (ordersCard) {
+                    ordersCard.addEventListener('click', () => {
+                        this.showOrdersReport();
+                    });
+                }
+                
+                const productsCard = document.getElementById('total-products')?.closest('.stat-card');
+                if (productsCard) {
+                    productsCard.addEventListener('click', () => {
+                        this.showProductsReport();
+                    });
+                }
+                
+                const avgSaleCard = document.getElementById('avg-sale')?.closest('.stat-card');
+                if (avgSaleCard) {
+                    avgSaleCard.addEventListener('click', () => {
+                        this.showSalesReport();
+                    });
+                }
+                
+                const lowStockCard = document.getElementById('low-stock-count')?.closest('.stat-card');
+                if (lowStockCard) {
+                    lowStockCard.addEventListener('click', () => {
+                        this.showLowStockReport();
+                    });
+                }
                 
                 // Generate button
                 const generateBtn = document.getElementById('generate-btn');
                 if (generateBtn) {
                     generateBtn.addEventListener('click', (e) => {
                         e.preventDefault();
-                        console.log('📊 Generate button clicked');
+                        // Generate button clicked
                         this.generateReport();
                     });
                 }
@@ -615,22 +738,32 @@
                     });
                 }
                 
-                console.log('✅ Event listeners attached');
+                // Event listeners attached
+            }
+            
+            getLocalDateString(date = null) {
+                // Helper function to get local date in YYYY-MM-DD format
+                // Use local date, not UTC, to avoid timezone issues
+                const d = date || new Date();
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
             }
             
             setDefaultDates() {
-                const today = new Date().toISOString().split('T')[0];
+                const today = this.getLocalDateString();
                 const startDate = document.getElementById('start-date');
                 if (startDate) {
                     startDate.value = today;
-                    console.log('📅 Default date set:', today);
+                    // Default date set
                 }
             }
             
             async loadQuickStats() {
                 try {
-                    console.log('📈 Loading quick stats...');
-                    const today = new Date().toISOString().split('T')[0];
+                    // Loading quick stats...
+                    const today = this.getLocalDateString();
                     const todayFormatted = new Date().toLocaleDateString('en-US', { 
                         weekday: 'long', 
                         year: 'numeric', 
@@ -644,23 +777,92 @@
                         todayDateElement.textContent = todayFormatted;
                     }
                     
-                    // Load today's sales data
-                    const response = await fetch(`/api/sales?date=${today}`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        console.log('📊 Today sales data loaded:', data.length, 'records');
-                        
-                        const totalRevenue = data.reduce((sum, sale) => sum + (parseFloat(sale.total_amount) || 0), 0);
-                        const totalSales = data.length;
-                        
-                        document.getElementById('today-revenue').textContent = `$${totalRevenue.toFixed(2)}`;
-                        document.getElementById('today-sales').textContent = totalSales;
-                        
-                        console.log(`✅ Today's stats: $${totalRevenue.toFixed(2)} revenue, ${totalSales} sales`);
+                    // Load today's sales count - try both methods for accuracy
+                    // Fetching sales count for date
+                    
+                    // Load sales data - try today first, then recent data if none today
+                    let totalOrders = 0;
+                    let totalRevenue = 0;
+                    let avgSale = 0;
+                    let displayDate = today;
+                    // Store the date for use in click handlers
+                    this.mostRecentSalesDate = today;
+                    
+                    // Method 1: Try today's data first
+                    try {
+                        const countResponse = await fetch(`/api/sales/count?date=${today}`);
+                        if (countResponse.ok) {
+                            const countData = await countResponse.json();
+                            totalOrders = parseInt(countData.total_orders) || 0;
+                            totalRevenue = parseFloat(countData.total_revenue) || 0;
+                        }
+                    } catch (error) {
+                        // Count endpoint failed
+                    }
+                    
+                    // Method 2: If no sales today, get recent sales data to show something
+                    if (totalOrders === 0) {
+                        try {
+                            // Get all recent sales and group by date to find the most recent day with data
+                            const allSalesResponse = await fetch('/api/sales');
+                            if (allSalesResponse.ok) {
+                                const allSales = await allSalesResponse.json();
+                                if (allSales.length > 0) {
+                                    // Find the most recent date with sales (sales are already sorted by date DESC)
+                                    // Extract date from created_at and find the most recent unique date
+                                    const datesWithSales = [...new Set(allSales.map(sale => sale.created_at.split(' ')[0]))];
+                                    const recentDate = datesWithSales[0]; // Most recent date
+                                    displayDate = recentDate;
+                                    // Store the date for use in click handlers
+                                    this.mostRecentSalesDate = recentDate;
+                                    
+                                    // Count orders from that recent date
+                                    const recentCountResponse = await fetch(`/api/sales/count?date=${recentDate}`);
+                                    if (recentCountResponse.ok) {
+                                        const recentData = await recentCountResponse.json();
+                                        totalOrders = parseInt(recentData.total_orders) || 0;
+                                        totalRevenue = parseFloat(recentData.total_revenue) || 0;
+                                        
+                                        // Update date display to show the date we're actually showing
+                                        // Parse date correctly (YYYY-MM-DD format)
+                                        const dateParts = recentDate.split('-');
+                                        const dateObj = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+                                        const recentDateFormatted = dateObj.toLocaleDateString('en-US', { 
+                                            weekday: 'long', 
+                                            year: 'numeric', 
+                                            month: 'long', 
+                                            day: 'numeric' 
+                                        });
+                                        if (todayDateElement) {
+                                            todayDateElement.textContent = `${recentDateFormatted} (Most Recent)`;
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error loading recent sales:', error);
+                            // Recent data fallback failed
+                        }
                     } else {
-                        console.log('⚠️ No sales data for today');
-                        document.getElementById('today-revenue').textContent = '$0.00';
-                        document.getElementById('today-sales').textContent = '0';
+                        // If we have today's data, show today's date
+                        if (todayDateElement) {
+                            todayDateElement.textContent = todayFormatted;
+                        }
+                    }
+                    
+                    // Calculate average
+                    avgSale = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+                    
+                    // Final stats calculated
+                    
+                    // Update display
+                    document.getElementById('today-revenue').textContent = `$${totalRevenue.toFixed(2)}`;
+                    document.getElementById('today-sales').textContent = totalOrders;
+                    
+                    // Update average sale if element exists
+                    const avgElement = document.getElementById('avg-sale');
+                    if (avgElement) {
+                        avgElement.textContent = `$${avgSale.toFixed(2)}`;
                     }
                     
                     // Load product count
@@ -673,7 +875,7 @@
                         const lowStock = products.filter(p => p.stock_quantity <= 5);
                         document.getElementById('low-stock-count').textContent = lowStock.length;
                         
-                        console.log(`✅ Products loaded: ${products.length} total, ${lowStock.length} low stock`);
+                        // Products loaded
                     }
                     
                 } catch (error) {
@@ -682,13 +884,12 @@
             }
             
             async generateReport() {
-                console.log('📊 Generating report...');
+                // Generating report...
                 
                 const reportType = document.getElementById('report-type').value;
                 const date = document.getElementById('start-date').value;
                 
-                console.log('📋 Report type:', reportType);
-                console.log('📅 Date:', date);
+                // Report type and date set
                 
                 if (!date) {
                     alert('Please select a date');
@@ -713,7 +914,7 @@
                     }
                     
                     this.displayReport(reportHtml);
-                    console.log('✅ Report generated successfully');
+                    // Report generated successfully
                     
                 } catch (error) {
                     console.error('❌ Error generating report:', error);
@@ -741,6 +942,43 @@
                 `;
             }
             
+            async showRevenueReport() {
+                const date = this.mostRecentSalesDate || this.getLocalDateString();
+                document.getElementById('report-type').value = 'daily';
+                document.getElementById('start-date').value = date;
+                await this.generateReport();
+                // Scroll to report results
+                document.getElementById('report-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            
+            async showOrdersReport() {
+                const date = this.mostRecentSalesDate || this.getLocalDateString();
+                document.getElementById('report-type').value = 'daily';
+                document.getElementById('start-date').value = date;
+                await this.generateReport();
+                document.getElementById('report-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            
+            async showProductsReport() {
+                document.getElementById('report-type').value = 'products';
+                await this.generateReport();
+                document.getElementById('report-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            
+            async showSalesReport() {
+                const date = this.mostRecentSalesDate || this.getLocalDateString();
+                document.getElementById('report-type').value = 'daily';
+                document.getElementById('start-date').value = date;
+                await this.generateReport();
+                document.getElementById('report-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            
+            async showLowStockReport() {
+                document.getElementById('report-type').value = 'inventory';
+                await this.generateReport();
+                document.getElementById('report-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            
             displayReport(html) {
                 const results = document.getElementById('report-results');
                 results.innerHTML = html;
@@ -754,21 +992,21 @@
             
             // API Methods
             async fetchDailyReport(date) {
-                console.log('📊 Fetching daily report for:', date);
+                // Fetching daily report
                 const response = await fetch(`/api/sales?date=${date}`);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 return await response.json();
             }
             
             async fetchProductReport() {
-                console.log('📦 Fetching product report');
+                // Fetching product report
                 const response = await fetch('/api/products');
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 return await response.json();
             }
             
             async fetchInventoryReport() {
-                console.log('📋 Fetching inventory report');
+                // Fetching inventory report
                 const response = await fetch('/api/products');
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const products = await response.json();
@@ -777,7 +1015,7 @@
             
             // Rendering Methods
             renderDailyReport(data, date) {
-                console.log('📊 Rendering daily report with data:', data.length, 'records');
+                // Rendering daily report
                 
                 const totalRevenue = data.reduce((sum, sale) => sum + (parseFloat(sale.total_amount) || 0), 0);
                 const totalItems = data.reduce((sum, sale) => sum + (sale.total_quantity || 0), 0);
@@ -839,8 +1077,6 @@
             }
             
             renderProductReport(data) {
-                console.log('📦 Rendering product report with data:', data.length, 'products');
-                
                 return `
                     <h2><i class="fas fa-box"></i> Product Performance Report</h2>
                     <table class="report-table">
@@ -856,16 +1092,16 @@
                         <tbody>
                             ${data.map(product => `
                                 <tr>
-                                    <td>${product.name}</td>
-                                    <td>${product.sku}</td>
-                                    <td>$${product.price.toFixed(2)}</td>
+                                    <td title="${this.escapeHtml(product.name)}">${this.escapeHtml(product.name)}</td>
+                                    <td title="${this.escapeHtml(product.sku)}">${this.escapeHtml(product.sku)}</td>
+                                    <td>$${parseFloat(product.price).toFixed(2)}</td>
                                     <td>${product.stock_quantity}</td>
                                     <td>
                                         <span class="status-badge ${
-                                            product.stock_quantity > 10 ? 'status-in-stock' : 
+                                            product.stock_quantity > 10 ? 'status-in-stock' :
                                             product.stock_quantity > 0 ? 'status-low-stock' : 'status-out-of-stock'
                                         }">
-                                            ${product.stock_quantity > 10 ? 'In Stock' : 
+                                            ${product.stock_quantity > 10 ? 'In Stock' :
                                               product.stock_quantity > 0 ? 'Low Stock' : 'Out of Stock'}
                                         </span>
                                     </td>
@@ -877,46 +1113,54 @@
             }
             
             renderInventoryReport(data) {
-                console.log('📋 Rendering inventory report with data:', data.length, 'low stock items');
+                // Rendering inventory report
                 
                 return `
                     <h2><i class="fas fa-exclamation-triangle"></i> Inventory Report - Low Stock Items</h2>
                     ${data.length > 0 ? `
-                        <table class="report-table">
-                            <thead>
-                                <tr>
-                                    <th>Product Name</th>
-                                    <th>SKU</th>
-                                    <th>Current Stock</th>
-                                    <th>Price</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${data.map(product => `
+                        <div class="report-table-container">
+                            <table class="report-table">
+                                <thead>
                                     <tr>
-                                        <td>${product.name}</td>
-                                        <td>${product.sku}</td>
-                                        <td>${product.stock_quantity}</td>
-                                        <td>$${product.price.toFixed(2)}</td>
-                                        <td>
-                                            <span class="status-badge ${
-                                                product.stock_quantity === 0 ? 'status-out-of-stock' : 'status-low-stock'
-                                            }">
-                                                ${product.stock_quantity === 0 ? 'Out of Stock' : 'Low Stock'}
-                                            </span>
-                                        </td>
+                                        <th>Product Name</th>
+                                        <th>SKU</th>
+                                        <th>Price</th>
+                                        <th>Stock</th>
+                                        <th>Status</th>
                                     </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    ${data.map(product => `
+                                        <tr>
+                                            <td title="${product.name}">${this.escapeHtml(product.name)}</td>
+                                            <td title="${product.sku}">${this.escapeHtml(product.sku)}</td>
+                                            <td>$${parseFloat(product.price).toFixed(2)}</td>
+                                            <td>${product.stock_quantity}</td>
+                                            <td>
+                                                <span class="status-badge ${
+                                                    product.stock_quantity === 0 ? 'status-out-of-stock' : 'status-low-stock'
+                                                }">
+                                                    ${product.stock_quantity === 0 ? 'Out of Stock' : 'Low Stock'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
                     ` : '<p class="no-data">No low stock items found. All products are well stocked!</p>'}
                 `;
             }
             
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+            
             // Export Methods
             printReport() {
-                console.log('🖨️ Printing report...');
+                // Printing report...
                 
                 const reportContent = document.getElementById('report-results');
                 if (!reportContent || reportContent.innerHTML.includes('no-data')) {
@@ -970,7 +1214,7 @@
             }
             
             shareReport() {
-                console.log('📤 Sharing report...');
+                // Sharing report...
                 
                 const reportContent = document.getElementById('report-results');
                 if (!reportContent || reportContent.innerHTML.includes('no-data')) {
@@ -989,7 +1233,7 @@
                         title: `POS Report - ${reportType.charAt(0).toUpperCase() + reportType.slice(1)}`,
                         text: shareText
                     }).catch(err => {
-                        console.log('Error sharing:', err);
+                        // Error sharing
                         this.fallbackShare(shareText);
                     });
                 } else {
@@ -1001,7 +1245,7 @@
                 navigator.clipboard.writeText(text).then(() => {
                     alert('Report copied to clipboard! You can now paste it in any application.');
                 }).catch(err => {
-                    console.log('Clipboard not available:', err);
+                    // Clipboard not available
                     this.showShareModal(text);
                 });
             }
@@ -1033,7 +1277,7 @@
             }
             
             exportToPDF() {
-                console.log('📄 Exporting to PDF...');
+                // Exporting to PDF...
                 
                 const reportContent = document.getElementById('report-results');
                 if (!reportContent || reportContent.innerHTML.includes('no-data')) {
@@ -1097,7 +1341,7 @@
         
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('🚀 DOM loaded, initializing Enhanced Reports Manager');
+            // DOM loaded, initializing Enhanced Reports Manager
             window.reportsManager = new EnhancedReportsManager();
         });
     </script>
