@@ -1,5 +1,8 @@
 # POS System
 
+<!--portfolio-note-->
+> **Portfolio note —** one of two point-of-sale builds. **This is the from-scratch, no-framework version (vanilla Node + SQLite)** — built to demonstrate fundamentals without leaning on Express or React. Sibling: [pos-support-automation](https://github.com/seifosmaan53/pos-support-automation) (Tauri + whisper.cpp desktop app).
+
 A production-ready, full-stack Point of Sale system built entirely with **vanilla Node.js and vanilla JavaScript** — no Express, no React, no ORM. Just the fundamentals done right.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
